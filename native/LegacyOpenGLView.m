@@ -1,17 +1,18 @@
 #import <React/RCTViewManager.h>
-#import <GLKit/GLKit.h>
-#import <OpenGLES/ES2/gl.h>
+#import <MetalANGLE/MGLKit.h>
+#import <GLES3/gl3.h>
+#import "ViewerMath.h"
 #import <float.h>
 
 // React owns the controls. This native view owns the GL context and frame loop.
-typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
+typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
 @class LegacyOpenGLView;
 @interface GLFrameProxy : NSObject
 @property(nonatomic, weak) LegacyOpenGLView *view;
 - (void)tick:(CADisplayLink *)link;
 @end
 
-@interface LegacyOpenGLView : GLKView <GLKViewDelegate>
+@interface LegacyOpenGLView : UIView <MGLKViewDelegate>
 @property(nonatomic, copy) NSString *model;
 @property(nonatomic, copy) NSString *meshColor;
 @property(nonatomic) BOOL spinning;
@@ -27,6 +28,8 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
 @end
 
 @implementation LegacyOpenGLView {
+  MGLKView *_glView;
+  BOOL _reportedFrame;
   GLuint _program, _triangles, _lines;
   GLsizei _triangleCount, _lineCount;
   float _angle, _height, _velocity;
@@ -36,15 +39,28 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
 }
 
 - (instancetype)init {
-  EAGLContext *context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
-  if ((self = [super initWithFrame:CGRectZero context:context])) {
-    self.delegate = self;
-    self.enableSetNeedsDisplay = NO;
-    self.drawableDepthFormat = GLKViewDrawableDepthFormat24;
-    self.drawableMultisample = GLKViewDrawableMultisample4X;
+  if ((self = [super initWithFrame:CGRectZero])) {
+    MGLContext *context = nil;
+    @try { context = [[MGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3]; }
+    @catch (NSException *exception) { [self fail:exception.reason]; return self; }
+    if (!context || ![MGLContext setCurrentContext:context]) { [self fail:@"Cannot create ANGLE GLES 3 context"]; return self; }
+    // MGLKView explicitly disallows subclassing: own it as a child UIView.
+    _glView = [[MGLKView alloc] initWithFrame:self.bounds context:context];
+    _glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _glView.userInteractionEnabled = NO;
+    _glView.delegate = self;
+    _glView.enableSetNeedsDisplay = NO;
+    _glView.drawableDepthFormat = MGLDrawableDepthFormat24;
+    _glView.drawableMultisample = MGLDrawableMultisample4X;
+    [self addSubview:_glView];
     _spinning = YES;
     _meshColor = @"#e8b56b";
-    [EAGLContext setCurrentContext:context];
+    // Drawable format setters can release/unbind MGLKit's EGL surface.
+    // Rebind after configuring the view, before any GLES resource calls.
+    if (![MGLContext setCurrentContext:context forLayer:nil]) { [self fail:@"Cannot bind ANGLE context after drawable setup"]; return self; }
+    const char *renderer = (const char *)glGetString(GL_RENDERER);
+    NSLog(@"ANGLE backend: %s | %s | %s", glGetString(GL_VENDOR), renderer, glGetString(GL_VERSION));
+    if (!renderer || !strstr(renderer, "Metal")) { [self fail:@"ANGLE did not select the Metal backend"]; return self; }
     [self createProgram];
     glGenBuffers(1, &_triangles);
     glGenBuffers(1, &_lines);
@@ -94,7 +110,7 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
 // OBJ positions and faces only; fan-triangulates polygons, supports negative indices.
 // The original assets' materials are replaced by the selected diffuse color.
 - (void)setModel:(NSString *)model {
-  if ([_model isEqualToString:model]) return;
+  if (!_glView || _failure || [_model isEqualToString:model]) return;
   if (![model.lastPathComponent isEqualToString:model] || ![model.pathExtension isEqualToString:@"obj"]) { [self fail:@"Invalid model name"]; return; }
   NSString *path = [[NSBundle mainBundle] pathForResource:model.stringByDeletingPathExtension ofType:@"obj"];
   NSString *source = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nil] : nil;
@@ -104,24 +120,24 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
     NSString *clean = [[line componentsSeparatedByString:@"#"][0] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
     NSArray *parts = [[clean componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
     if (parts.count >= 4 && [parts[0] isEqualToString:@"v"]) {
-      GLKVector3 p = GLKVector3Make([parts[1] floatValue], [parts[2] floatValue], [parts[3] floatValue]);
+      ViewerVector3 p = ViewerVector3Make([parts[1] floatValue], [parts[2] floatValue], [parts[3] floatValue]);
       if (!isfinite(p.x) || !isfinite(p.y) || !isfinite(p.z)) { [self fail:@"Non-finite OBJ position"]; return; }
       [positions appendBytes:&p length:sizeof(p)];
     } else if (parts.count >= 4 && [parts[0] isEqualToString:@"f"]) {
       NSMutableArray<NSNumber *> *indices = [NSMutableArray array];
-      NSInteger count = positions.length / sizeof(GLKVector3);
+      NSInteger count = positions.length / sizeof(ViewerVector3);
       for (NSUInteger i = 1; i < parts.count; i++) {
         NSInteger index = [[[parts[i] componentsSeparatedByString:@"/"] firstObject] integerValue];
         index = index > 0 ? index - 1 : count + index;
         if (index < 0 || index >= count) { [self fail:@"OBJ face index outside vertex array"]; return; }
         [indices addObject:@(index)];
       }
-      const GLKVector3 *points = positions.bytes;
+      const ViewerVector3 *points = positions.bytes;
       for (NSUInteger i = 1; i + 1 < indices.count; i++) {
-        GLKVector3 a = points[indices[0].integerValue], b = points[indices[i].integerValue], c = points[indices[i + 1].integerValue];
-        GLKVector3 normal = GLKVector3CrossProduct(GLKVector3Subtract(b, a), GLKVector3Subtract(c, a));
-        float length = GLKVector3Length(normal);
-        normal = length > 1e-12f ? GLKVector3DivideScalar(normal, length) : GLKVector3Make(0, 1, 0);
+        ViewerVector3 a = points[indices[0].integerValue], b = points[indices[i].integerValue], c = points[indices[i + 1].integerValue];
+        ViewerVector3 normal = ViewerVector3CrossProduct(ViewerVector3Subtract(b, a), ViewerVector3Subtract(c, a));
+        float length = ViewerVector3Length(normal);
+        normal = length > 1e-12f ? ViewerVector3DivideScalar(normal, length) : ViewerVector3Make(0, 1, 0);
         MeshVertex triangle[] = {{a, normal}, {b, normal}, {c, normal}};
         [vertices appendBytes:triangle length:sizeof(triangle)];
       }
@@ -130,17 +146,17 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
   if (!vertices.length) { [self fail:@"Model contains no triangle faces"]; return; }
   MeshVertex *data = vertices.mutableBytes;
   NSUInteger count = vertices.length / sizeof(MeshVertex);
-  GLKVector3 low = GLKVector3Make(FLT_MAX, FLT_MAX, FLT_MAX), high = GLKVector3Make(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-  for (NSUInteger i = 0; i < count; i++) { low = GLKVector3Minimum(low, data[i].position); high = GLKVector3Maximum(high, data[i].position); }
-  GLKVector3 center = GLKVector3MultiplyScalar(GLKVector3Add(low, high), .5f), size = GLKVector3Subtract(high, low);
+  ViewerVector3 low = ViewerVector3Make(FLT_MAX, FLT_MAX, FLT_MAX), high = ViewerVector3Make(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+  for (NSUInteger i = 0; i < count; i++) { low = ViewerVector3Minimum(low, data[i].position); high = ViewerVector3Maximum(high, data[i].position); }
+  ViewerVector3 center = ViewerVector3MultiplyScalar(ViewerVector3Add(low, high), .5f), size = ViewerVector3Subtract(high, low);
   float scale = 2.4f / fmaxf(fmaxf(size.x, size.y), fmaxf(size.z, 1e-6f));
   NSMutableData *edges = [NSMutableData data];
-  for (NSUInteger i = 0; i < count; i++) data[i].position = GLKVector3MultiplyScalar(GLKVector3Subtract(data[i].position, center), scale);
+  for (NSUInteger i = 0; i < count; i++) data[i].position = ViewerVector3MultiplyScalar(ViewerVector3Subtract(data[i].position, center), scale);
   for (NSUInteger i = 0; i < count; i += 3) {
     MeshVertex edge[] = {data[i], data[i+1], data[i+1], data[i+2], data[i+2], data[i]};
     [edges appendBytes:edge length:sizeof(edge)];
   }
-  [EAGLContext setCurrentContext:self.context];
+  [MGLContext setCurrentContext:_glView.context];
   glBindBuffer(GL_ARRAY_BUFFER, _triangles); glBufferData(GL_ARRAY_BUFFER, vertices.length, vertices.bytes, GL_STATIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, _lines); glBufferData(GL_ARRAY_BUFFER, edges.length, edges.bytes, GL_STATIC_DRAW);
   _triangleCount = (GLsizei)count; _lineCount = (GLsizei)(edges.length / sizeof(MeshVertex));
@@ -150,7 +166,7 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
 - (void)setResetToken:(NSInteger)resetToken { _resetToken = resetToken; _height = _velocity = _angle = 0; }
 - (void)didMoveToWindow {
   [super didMoveToWindow];
-  if (self.window && !_displayLink) {
+  if (self.window && _glView && !_failure && !_displayLink) {
     GLFrameProxy *proxy = [GLFrameProxy new]; proxy.view = self;
     _displayLink = [CADisplayLink displayLinkWithTarget:proxy selector:@selector(tick:)];
     [_displayLink addToRunLoop:NSRunLoop.mainRunLoop forMode:NSRunLoopCommonModes];
@@ -164,22 +180,24 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
   if (_spinning) _angle += dt * .6f;
   float acceleration = _flying ? .5f : 0;
   _height += _velocity * dt + .5f * acceleration * dt * dt; _velocity += acceleration * dt;
-  [self display];
+  if (_failure || CGRectIsEmpty(_glView.bounds)) return;
+  @try { [_glView display]; }
+  @catch (NSException *exception) { [self fail:exception.reason]; [_displayLink invalidate]; _displayLink = nil; }
 }
 - (void)uniform4:(const char *)name x:(float)x y:(float)y z:(float)z w:(float)w { glUniform4f(glGetUniformLocation(_program, name), x, y, z, w); }
-- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect {
+- (void)mglkView:(MGLKView *)view drawInRect:(CGRect)rect {
   glViewport(0, 0, (GLsizei)view.drawableWidth, (GLsizei)view.drawableHeight);
   glClearColor(.067f, .106f, .161f, 1); glEnable(GL_DEPTH_TEST); glDisable(GL_CULL_FACE);
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   if (!_program || !_triangleCount || view.drawableHeight == 0) return;
   glUseProgram(_program);
   float aspect = (float)view.drawableWidth / (float)view.drawableHeight;
-  GLKMatrix4 model = GLKMatrix4Multiply(GLKMatrix4MakeTranslation(0, _height, 0), GLKMatrix4MakeYRotation(_angle));
-  GLKMatrix4 projection = GLKMatrix4MakeOrtho(-1.8f * aspect, 1.8f * aspect, -1.8f, 1.8f, -10, 10);
-  GLKMatrix4 mvp = GLKMatrix4Multiply(projection, model);
+  ViewerMatrix4 model = ViewerMatrix4Multiply(ViewerMatrix4MakeTranslation(0, _height, 0), ViewerMatrix4MakeYRotation(_angle));
+  ViewerMatrix4 projection = ViewerMatrix4MakeOrtho(-1.8f * aspect, 1.8f * aspect, -1.8f, 1.8f, -10, 10);
+  ViewerMatrix4 mvp = ViewerMatrix4Multiply(projection, model);
   glUniformMatrix4fv(glGetUniformLocation(_program, "u_mvMatrix"), 1, GL_FALSE, model.m);
   glUniformMatrix4fv(glGetUniformLocation(_program, "u_mvpMatrix"), 1, GL_FALSE, mvp.m);
-  GLKVector3 light = GLKVector3Normalize(GLKVector3Make(.4f, .7f, 1));
+  ViewerVector3 light = ViewerVector3Normalize(ViewerVector3Make(.4f, .7f, 1));
   glUniform3f(glGetUniformLocation(_program, "u_directionalLight.direction"), light.x, light.y, light.z);
   glUniform3f(glGetUniformLocation(_program, "u_directionalLight.halfplane"), 0, 0, 1);
   [self uniform4:"u_directionalLight.ambientColor" x:.4f y:.4f z:.4f w:1];
@@ -196,13 +214,21 @@ typedef struct { GLKVector3 position; GLKVector3 normal; } MeshVertex;
   glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void *)offsetof(MeshVertex, position));
   glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void *)offsetof(MeshVertex, normal));
   glDrawArrays(_wireframe ? GL_LINES : GL_TRIANGLES, 0, _wireframe ? _lineCount : _triangleCount);
+  if (!_reportedFrame) {
+    _reportedFrame = YES;
+    GLenum error = glGetError();
+    NSLog(@"ANGLE first frame: %ldx%ld, framebuffer=%u, GL error=0x%x", (long)view.drawableWidth, (long)view.drawableHeight, view.defaultOpenGLFrameBufferID, error);
+    if (error != GL_NO_ERROR) [self fail:[NSString stringWithFormat:@"ANGLE draw error 0x%x", error]];
+  }
 }
 - (void)dealloc {
   [_displayLink invalidate];
-  EAGLContext *previous = EAGLContext.currentContext;
-  [EAGLContext setCurrentContext:self.context];
+  if (!_glView) return;
+  MGLContext *previous = MGLContext.currentContext;
+  MGLLayer *previousLayer = MGLContext.currentLayer;
+  [MGLContext setCurrentContext:_glView.context];
   glDeleteBuffers(1, &_triangles); glDeleteBuffers(1, &_lines); if (_program) glDeleteProgram(_program);
-  [EAGLContext setCurrentContext:previous == self.context ? nil : previous];
+  [MGLContext setCurrentContext:previous == _glView.context ? nil : previous forLayer:previous == _glView.context ? nil : previousLayer];
 }
 @end
 

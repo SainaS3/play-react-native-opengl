@@ -4,10 +4,14 @@ An iOS-first adaptation of [James Long's original experiment](https://archive.jl
 
 The historical `Rend Example Collection/` and `.xcodeproj` are preserved. Their exact prerelease ReactKit/Rend dependencies are missing, so the runnable app adapts that same UI-over-native-graphics concept using current React Native tooling. It does not claim to restore the missing Rend engine.
 
+This `angle-es3` branch uses the local MetalANGLE fork to translate GLES to Metal. The native view requests an ES3 context; the existing ES2-compatible draw logic and shaders remain intact. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
+
 ## Run on iPhone
 
 ```sh
 npm ci
+npm run angle:prepare
+npm run angle:configure
 npm run ios:device
 ```
 
@@ -26,13 +30,14 @@ Open the installed React OpenGL Lab on the phone. Native edits require rebuildin
 ```text
 React Native controls → native view properties/commands
                       → Objective-C mesh/controller state
-                      → GLKit / OpenGL ES 2 shaders and buffers
-                      → GPU
+                      → GLES shaders and buffers
+                      → MetalANGLE → Metal → GPU
 ```
 
 The native `CADisplayLink` advances rotation/flight and draws frames without React or JavaScript animation callbacks. The OBJ files and original lighting shaders are bundled as native resources. Controls: model search/selection/random, rotation, flight/reset, diffuse color and wireframe.
 
 - [Setup](docs/SETUP.md)
+- [Graphics concept and why init changed](docs/GRAPHICS-CONCEPT.md)
 - [Architecture and source map](docs/ARCHITECTURE.md)
 - [Custom renderer/painter concepts](docs/RENDERER-IDEAS.md)
 - [Work log](docs/WORKLOG.md)

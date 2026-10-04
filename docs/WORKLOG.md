@@ -84,3 +84,31 @@ Added a reproducible Xcode config plugin registering native sources, all ten OBJ
 This is an adaptation of the original architecture; the missing prerelease ReactKit/Rend engine sources remain missing. The replacement controller/view is native Objective-C and uses actual OpenGL ES. Expo supplies app development tooling, not the graphics renderer. Expo Go cannot host the custom view; the development client must be rebuilt.
 
 The signed native build succeeded and was installed on the connected iPhone. Device logs confirmed native OBJ loading (cone: 186 vertices, cow-parts: 11,133, cow: 6,849). The user confirmed that models render and Rotate/Pause, Fly/Reset and Wireframe work in the native viewer. Compiler warnings include Apple's OpenGL ES/GLKit deprecations. Removed the unused `expo-gl` dependency as well, rebuilt the client, and restarted Metro with a cleared cache. TypeScript validation passed after dependency cleanup.
+
+## ANGLE / Metal branch integration — 2026-10-04
+
+User requested the supplied MetalANGLE artifact on their `angle-es3` branch. Initial branch state was clean at `6ac8b4c`. Read the local DARWIN_ES3_METAL_IOS_HANDOFF.md and checked the actual MGLKit headers/implementation. The ANGLE checkout is on `darwin-es3-metal` at `ec925142e`, matching the handoff.
+
+Added a local vendored-framework pod and reproducible preparation/configuration scripts. The artifact stays in ignored `native/vendor/`; verified all 77 copied framework files against the handoff's SHA-256 manifest. The preparation script checks supplied hashes before copying. The Expo plugin removes app links to Apple GLKit/OpenGLES and registers the local pod. CocoaPods embeds/signs the selected XCFramework slice.
+
+Replaced EAGLContext/GLKView with MGLContext/MGLKView at the iOS platform boundary. MGLKit forbids subclassing its view, so the existing registered React view now owns an MGLKView child/delegate. Requests GLES3 while retaining the same ES2-compatible GLSL sources, OBJ loading, VBOs, uniforms, draw calls, animation and React control props. Replaced GLKit math dependency with a small column-major math header; standalone checks validated translation/rotation/projection multiplication and face-normal math. TypeScript and script syntax checks passed.
+
+The first build reused cached pods and could not find MGLKit.h. Explicit pod installation fixed it; `angle:configure` now makes this step reproducible. The next device launch caught null GL strings: MGLKit drawable-format setters release/unbind the EGL surface. Rebinding after drawable configuration fixed initialization. Errors are surfaced through the existing native error overlay.
+
+Final device build succeeded, 0 errors / 55 warnings, signed and installed on the connected iPhone SE (3rd generation). Verified the embedded MetalANGLE framework signature and the app's direct dynamic dependencies: MetalANGLE is linked; Apple GLKit/OpenGLES are absent. Symbol inspection confirms glGetString/glGenBuffers/glDrawArrays resolve to MetalANGLE.
+
+Device log evidence:
+
+```text
+ANGLE backend: Google Inc. | ANGLE (Metal Renderer: Apple A15 GPU) | OpenGL ES 3.0.0 (ANGLE 2.1.0.ec925142edeb)
+Native OpenGL loaded cone.obj (186 vertices)
+ANGLE first frame: 686x440, framebuffer=0, GL error=0x0
+```
+
+This verifies the supplied Metal backend is running and the first draw produced no GLES error. Visual/control confirmation is separate from that runtime evidence. The artifact's ES3 conformance limit from the handoff remains applicable; this work does not run an ES conformance suite. Only the physical-device integration was executed; the simulator slice was packaged but not launched.
+
+The user confirmed that models render and Rotate/Pause, Fly/Reset and Wireframe all work with the ANGLE/Metal build. Subsequent device logs show all ten original meshes loaded during the user's interaction, including teapot (18,960 vertices), capsule (30,600) and jlongster (29,988). Metro remains running for JS edits; native/backend edits require rebuilding the installed client.
+
+## Explain the ANGLE hosting boundary
+
+Added GRAPHICS-CONCEPT.md at the user's request, explaining React controls → native GLES renderer → ANGLE → Metal, the difference between graphics API translation and iOS context/drawable hosting, required versus optional initializer changes, the observed context-unbind issue, native frame/presentation lifecycle, and the boundary for a future painter/custom reconciler. Updated the source-map diagram and linked the concept from README/ANGLE/painter notes. This documentation update makes no runtime code changes; checked against the actual initializer and supplied MGLKit source.
