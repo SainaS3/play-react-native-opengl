@@ -2,11 +2,18 @@ import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const angleRoot = path.resolve(process.argv[2] || path.join(root, '../angle'));
 const framework = path.join(angleRoot, 'out/darwin-es3-metal/MetalANGLE.xcframework');
 if (!existsSync(framework)) throw new Error(`Missing ${framework}. Build the handoff artifact first or pass the ANGLE checkout to npm run angle:prepare -- /path/to/angle.`);
+const metadata = JSON.parse(execFileSync('plutil', ['-convert', 'json', '-o', '-', path.join(framework, 'Info.plist')], { encoding: 'utf8' }));
+for (const variant of [undefined, 'simulator', 'maccatalyst']) {
+  if (!metadata.AvailableLibraries.some(slice => slice.SupportedPlatform === 'ios' && slice.SupportedPlatformVariant === variant)) {
+    throw new Error(`MetalANGLE is missing the ${variant || 'device'} slice. Run the iOS build followed by scripts/local/build-darwin-es3-metal-catalyst.sh in the ANGLE checkout to produce the combined package.`);
+  }
+}
 const destination = path.join(root, 'native/vendor');
 mkdirSync(destination, { recursive: true });
 const hashes = path.join(angleRoot, 'out/darwin-es3-metal/SHA256SUMS.json');

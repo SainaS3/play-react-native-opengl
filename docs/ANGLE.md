@@ -13,7 +13,7 @@ npm run angle:configure
 npm run ios:device
 ```
 
-`angle:prepare` copies the entire device/simulator XCFramework from the sibling ANGLE checkout to ignored `native/vendor/`. For a different checkout:
+`angle:prepare` copies the entire device/simulator/Catalyst XCFramework from the sibling ANGLE checkout to ignored `native/vendor/`. It requires all three variants. See [Mac Catalyst](CATALYST.md) for the desktop build. For a different checkout:
 
 ```sh
 npm run angle:prepare -- /path/to/angle
