@@ -35,7 +35,9 @@ module.exports = config => {
     // xcode's writer serializes an undefined path as the literal "undefined".
     // Keep this a virtual group, relative to the ios project root.
     delete project.pbxGroupByName('Resources').path;
-    const sources = ['../native/LegacyOpenGLView.m'];
+    // Remove the old Objective-C entry when upgrading an existing project.
+    project.removeSourceFile('../native/LegacyOpenGLView.m', { target }, mainGroup);
+    const sources = ['../native/LegacyOpenGLView.mm'];
     const resources = readdirSync(path.join(config.modRequest.projectRoot, 'native/resources/models'))
       .filter(name => name.endsWith('.obj'))
       .map(name => `../native/resources/models/${name}`);
@@ -46,7 +48,13 @@ module.exports = config => {
       const file = reference.path.replace(/^"|"$/g, '');
       if (file.startsWith('../Rend Example Collection/')) project.removeResourceFile(file, { target });
     }
-    for (const file of sources) if (!project.hasFile(file)) project.addSourceFile(file, { target }, mainGroup);
+    for (const file of sources) {
+      if (!project.hasFile(file)) project.addSourceFile(file, { target }, mainGroup);
+      // node-xcode does not infer the Objective-C++ type for .mm files.
+      for (const reference of Object.values(project.pbxFileReferenceSection())) {
+        if (reference?.path?.replace(/^"|"$/g, '') === file) reference.lastKnownFileType = 'sourcecode.cpp.objcpp';
+      }
+    }
     for (const file of resources) if (!project.hasFile(file)) project.addResourceFile(file, { target });
     // Remove stale links when regenerating an existing Apple GLES project.
     project.removeFramework('GLKit.framework', { target });

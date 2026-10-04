@@ -36,7 +36,7 @@ flowchart LR
 | --- | --- |
 | `src/App.tsx` | React Native controls and UI state; overlay caption |
 | `src/OpenGLView.tsx` | Thin requireNativeComponent wrapper, prop updates and native error events |
-| `native/LegacyOpenGLView.m` | UIView owning an MGLKView, ANGLE ES3 context, OBJ parser, mesh buffers, original shader compilation/linking, uniforms, native animation and cleanup |
+| `native/LegacyOpenGLView.mm` | UIView owning an MGLKView, ANGLE ES3 context, OBJ parser, mesh buffers, original shader compilation/linking, uniforms, native animation and cleanup |
 | `plugins/with-native-opengl.js` | Registers native source, original OBJ/shader resources and the local MetalANGLE pod in the generated Xcode target |
 | `native/resources/models/` / `shaders/` | Original OBJ/MTL assets and the two reused lighting shaders; shader license comments preserved |
 | `scripts/generate-models.mjs` | Generates filename list only; geometry never passes through JS |
@@ -54,3 +54,5 @@ The missing Rend engine is replaced by a small native controller/view, and the o
 A custom renderer for your later idea is separate research: React could eventually send native scene operations, but it is not part of this viewer.
 
 On `angle-es3`, the GLES API resolves to MetalANGLE rather than Apple OpenGLES. `ViewerMath.h` keeps vector/matrix calculations independent of GLKit. The React view owns an MGLKView child because the wrapper API forbids subclassing MGLKView. The branch retains the same mesh parser, animation, shader sources and draw calls; context/drawable setup and native linking change. See [ANGLE.md](ANGLE.md).
+
+The Apple view is compiled as Objective-C++ (`.mm`), so it can call a future shared C++ core directly. Keep reusable mesh parsing, math, animation and rendering logic in platform-independent C++ headers/sources; UIKit, MGLKit and the React Native view manager remain in the Apple adapter. Android can call that same core through JNI. Renaming the adapter alone does not make its Apple APIs portable.
