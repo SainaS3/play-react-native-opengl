@@ -41,8 +41,8 @@ npm run ios:device
 
 JS export does not validate Objective-C or produce a signed IPA. Native compilation and phone launch are the decisive checks. Native error events report missing shaders/meshes or shader compilation failures in the control UI. Use Xcode/device logs for native crashes.
 
-`npm ci` generates only `src/generated/modelNames.json`; the Xcode plugin bundles all ten original OBJ files and both original vertex-lighting shaders. No geometry conversion through a third-party engine is needed.
+`npm ci` generates only `src/generated/modelNames.json`; the Xcode plugin bundles all ten original OBJ files from `native/resources/models/` and both original vertex-lighting shaders from `native/resources/shaders/`. No geometry conversion through a third-party engine is needed.
 
 ## Historical target
 
-The original JS folder still lacks `packager/packager.sh`. Its Xcode project defaults to i386/iOS 5.1 and references absent external ReactKit, Rend Classes and Shaders. The modern root app preserves the concept rather than pretending these missing dependencies have been restored. Do not install modern packages into the historical JS folder.
+The obsolete Rend source tree, vendored prerelease JavaScript dependencies and original Xcode project were removed. They depended on missing external ReactKit/Rend code and are not build targets for this app. Original assets are retained in `native/resources/`; the old source is available in Git history (for example, commit `6ac8b4c`). The original README is preserved in `ORIGINAL-README.md`.

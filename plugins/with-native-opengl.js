@@ -36,10 +36,16 @@ module.exports = config => {
     // Keep this a virtual group, relative to the ios project root.
     delete project.pbxGroupByName('Resources').path;
     const sources = ['../native/LegacyOpenGLView.m'];
-    const resources = readdirSync(path.join(config.modRequest.projectRoot, 'Rend Example Collection/Resources'))
+    const resources = readdirSync(path.join(config.modRequest.projectRoot, 'native/resources/models'))
       .filter(name => name.endsWith('.obj'))
-      .map(name => `../Rend Example Collection/Resources/${name}`);
-    resources.push('../Rend Example Collection/sVertexLighting.vsh', '../Rend Example Collection/sVertexLighting.fsh');
+      .map(name => `../native/resources/models/${name}`);
+    resources.push('../native/resources/shaders/sVertexLighting.vsh', '../native/resources/shaders/sVertexLighting.fsh');
+    // Migrate existing generated projects before adding the relocated resources.
+    for (const reference of Object.values(project.pbxFileReferenceSection())) {
+      if (!reference || typeof reference !== 'object' || !reference.path) continue;
+      const file = reference.path.replace(/^"|"$/g, '');
+      if (file.startsWith('../Rend Example Collection/')) project.removeResourceFile(file, { target });
+    }
     for (const file of sources) if (!project.hasFile(file)) project.addSourceFile(file, { target }, mainGroup);
     for (const file of resources) if (!project.hasFile(file)) project.addResourceFile(file, { target });
     // Remove stale links when regenerating an existing Apple GLES project.
