@@ -2,10 +2,14 @@
 
 Observed environment: Node 23.1.0/npm 10.9.0, Xcode 16.1, CocoaPods 1.16.2, wired iPhone SE (3rd generation) running iOS 17.3.1. `.nvmrc` recommends Node 22 for future shells; the existing Node was used for validation.
 
+This branch requires the built local MetalANGLE XCFramework. See [ANGLE.md](ANGLE.md). `angle:prepare` defaults to the sibling `../angle` checkout; pass another checkout path when needed.
+
 ## Device build
 
 ```sh
 npm ci
+npm run angle:prepare
+npm run angle:configure
 npm run ios:device
 ```
 
@@ -13,7 +17,7 @@ Select the phone and your development signing identity. Unlock/trust the Mac, en
 
 In Xcode → Settings → Accounts, select Personal Team and create an Apple Development certificate via Manage Certificates. If the installed app cannot launch because its developer is untrusted, trust your profile in Settings → General → VPN & Device Management on the phone.
 
-The scripts set `LC_ALL` and `LANG` to UTF-8 for CocoaPods without modifying global shell configuration. The native source/resources/frameworks are added through `plugins/with-native-opengl.js`, so Expo prebuild can reproduce the integration. Native directories remain ignored; keep durable changes in `native/` and the plugin.
+The scripts set `LC_ALL` and `LANG` to UTF-8 for CocoaPods without modifying global shell configuration. The native source/resources/frameworks are added through `plugins/with-native-opengl.js`, so Expo prebuild can reproduce the integration. The local pod embeds and signs the XCFramework. Run `angle:configure` after switching to this branch or replacing the framework: Expo device builds may reuse cached pods even after the Podfile changes. Native directories remain ignored; keep durable changes in `native/` and the plugin.
 
 ## Development
 

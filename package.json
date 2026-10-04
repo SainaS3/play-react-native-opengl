@@ -14,7 +14,9 @@
     "export:ios": "expo export --platform ios --output-dir dist/ios",
     "export:web": "expo export --platform web --output-dir dist/web",
     "check": "tsc --noEmit",
-    "android": "expo run:android"
+    "android": "expo run:android",
+    "angle:prepare": "node scripts/prepare-angle.mjs",
+    "angle:configure": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo prebuild --platform ios --no-install && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 pod install --project-directory=ios"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",

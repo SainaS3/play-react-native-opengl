@@ -8,6 +8,8 @@ React Native owns controls, document selection and tool settings. A native OpenG
 
 For a painter, begin with one native brush and one layer. Keep confirmed input samples and active stroke preview in the native engine. React can select color/size, show layers and invoke undo. Measure input-to-display latency on your phone before adding a reconciler.
 
+On the ANGLE branch, that GLES renderer executes through MetalANGLE and Metal. This backend adaptation is separate from the document/brush design and from a future React reconciler. See [Graphics concept](GRAPHICS-CONCEPT.md).
+
 ## Three rates
 
 1. UI/document changes: layer order, completed strokes, tool selection, undo/redo.
