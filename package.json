@@ -1,0 +1,38 @@
+{
+  "name": "react-native-opengl-lab",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "prepare": "npm run assets",
+    "assets": "node scripts/generate-models.mjs",
+    "start": "expo start",
+    "ios": "expo start --dev-client --ios",
+    "ios:device": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo run:ios --device",
+    "web": "expo start --web",
+    "build:ios": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo run:ios",
+    "export:ios": "expo export --platform ios --output-dir dist/ios",
+    "export:web": "expo export --platform web --output-dir dist/web",
+    "check": "tsc --noEmit",
+    "android": "expo run:android"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~6.1.2",
+    "expo": "~54.0.0",
+    "expo-asset": "~12.0.13",
+    "expo-dev-client": "~6.0.21",
+    "expo-file-system": "~19.0.24",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "react-native": "0.81.5",
+    "react-native-safe-area-context": "~5.6.0",
+    "react-native-web": "^0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}

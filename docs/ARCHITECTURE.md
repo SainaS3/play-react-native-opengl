@@ -1,0 +1,49 @@
+# React Native UI over a native OpenGL ES scene
+
+## Original concept
+
+The [2015 article](https://archive.jlongster.com/First-Impressions-using-React-Native) uses React Native controls over an Objective-C OpenGL viewer. React renders the controls, not the graphics scene.
+
+| Historical file | Responsibility |
+| --- | --- |
+| `TeapotAppDelegate.m` | OpenGL ES context, transparent RCTRootView over the graphics view, old bridge module lookup |
+| `GLViewController.m` | REGLView, orthographic camera, Rend scene/world/director and native scheduler |
+| `TeapotController.m` | Native mesh loading, exported paths/loadMesh/fly/reset, motion and rotation |
+| `js/main.js` | Native React search/list/buttons calling the controller |
+| `sVertexLighting.vsh` / `.fsh` | Vertex lighting and fragment color shaders, reused by the adaptation |
+| `.xcodeproj/project.pbxproj` | External prerelease ReactKit and Rend source references absent from this fork |
+
+Historical source issues include synthetic nonexistent mesh rows, motion ignoring `dt`, and thread handling differing between loadMesh and fly/reset. The new native view only lists real files and uses elapsed native display-link time.
+
+## Current adaptation
+
+```mermaid
+flowchart LR
+  UI[React Native controls] --> Props[Native view property updates]
+  Props --> Native[Objective-C controller state]
+  OBJ[Bundled original OBJ files] --> Native
+  Link[Native CADisplayLink] --> Native
+  Native --> GL[GLKView / EAGLContext ES2]
+  Shaders[Original GLSL shaders] --> GL
+  GL --> GPU[GPU]
+```
+
+| Current file | Responsibility |
+| --- | --- |
+| `src/App.tsx` | React Native controls and UI state; overlay caption |
+| `src/OpenGLView.tsx` | Thin requireNativeComponent wrapper, prop updates and native error events |
+| `native/LegacyOpenGLView.m` | Native GLKView, ES2 context, OBJ parser, mesh buffers, original shader compilation/linking, uniforms, native animation and cleanup |
+| `plugins/with-native-opengl.js` | Registers native source, original OBJ/shader resources and GLKit/OpenGLES frameworks in the generated Xcode target |
+| `scripts/generate-models.mjs` | Generates filename list only; geometry never passes through JS |
+
+The RCTViewManager exposes model, meshColor, spinning, flying, wireframe and resetToken. RN delivers changes on the UI thread; native setters update controller state or reload mesh buffers. The current RN architecture hosts this classic native view through compatibility interop. There is no custom React reconciler for the graphics scene.
+
+Native frame work stays in Objective-C. CADisplayLink computes capped elapsed seconds, changes rotation/position and asks GLKView to display. GLKView owns its framebuffer, depth buffer and presentation. The view explicitly owns its shader program and two VBOs (triangles and edges), disposing them with its context current. A weak display-link proxy avoids a view/link retain cycle. Rendering skips while the application is inactive; leaving the window stops the display link.
+
+OBJ loading accepts positions and face indices (including negative relative indices), fan-triangulates polygons, computes flat face normals, centers the mesh and scales its longest dimension to 2.4. These bundled models are the supported input; this is not a general-purpose OBJ/MTL engine. Materials/textures and authored smooth normals are not reproduced. It supplies the same directional-light/material uniform interface used by the original shaders. Wireframe uses explicit edge lines. The camera is orthographic, matching the original projection choice.
+
+## Exact limits of the adaptation
+
+The missing Rend engine is replaced by a small native controller/view, and the old ReactKit bridge is replaced by current RN view registration. The root Expo app supplies development tooling and packaging. Expo GL, Three.js and React Three Fiber are not used. This retains the original separation of native graphics and React controls, rather than the earlier declarative-scene experiment.
+
+A custom renderer for your later idea is separate research: React could eventually send native scene operations, but it is not part of this viewer.

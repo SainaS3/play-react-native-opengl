@@ -1,0 +1,9 @@
+/node_modules/
+/.expo/
+/dist/
+/ios/
+/android/
+/src/generated/
+/artifacts/
+.DS_Store
+*.log
