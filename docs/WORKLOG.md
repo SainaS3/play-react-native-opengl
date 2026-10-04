@@ -112,3 +112,8 @@ The user confirmed that models render and Rotate/Pause, Fly/Reset and Wireframe 
 ## Explain the ANGLE hosting boundary
 
 Added GRAPHICS-CONCEPT.md at the user's request, explaining React controls → native GLES renderer → ANGLE → Metal, the difference between graphics API translation and iOS context/drawable hosting, required versus optional initializer changes, the observed context-unbind issue, native frame/presentation lifecycle, and the boundary for a future painter/custom reconciler. Updated the source-map diagram and linked the concept from README/ANGLE/painter notes. This documentation update makes no runtime code changes; checked against the actual initializer and supplied MGLKit source.
+# Mac Catalyst follow-up — 2026-10-05
+
+On `desktop-mac-catalyst`, enabled Catalyst in the durable Expo config plugin and React Native CocoaPods post-install hook. Replaced the ignored framework copy with the combined handoff XCFramework and added platform checks to preparation. The React UI and native rendering source are unchanged.
+
+Release build succeeded for arm64/x86_64; both app binaries report MACCATALYST. The app launched on Apple M2, reported the ANGLE Metal backend and ES3 context, and drew its first 1298×613 frame with no GL error. Runtime logs recorded subsequent loading of all ten models. TypeScript and iOS JS export passed. Intel execution and a fresh iOS native build remain untested; desktop visual inspection was unavailable because the UI tool timed out. See [CATALYST.md](CATALYST.md) for commands and evidence.

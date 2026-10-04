@@ -4,7 +4,19 @@ An iOS-first adaptation of [James Long's original experiment](https://archive.jl
 
 The historical `Rend Example Collection/` and `.xcodeproj` are preserved. Their exact prerelease ReactKit/Rend dependencies are missing, so the runnable app adapts that same UI-over-native-graphics concept using current React Native tooling. It does not claim to restore the missing Rend engine.
 
-This `angle-es3` branch uses the local MetalANGLE fork to translate GLES to Metal. The native view requests an ES3 context; the existing ES2-compatible draw logic and shaders remain intact. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
+This app uses the local MetalANGLE fork to translate GLES to Metal on iOS and Mac Catalyst. The native view requests an ES3 context; the existing ES2-compatible draw logic and shaders remain intact. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
+
+## Run on Mac Catalyst
+
+```sh
+npm ci
+npm run angle:prepare
+npm run angle:configure
+npm run build:catalyst
+npm run catalyst
+```
+
+Uses the same React UI and native renderer. The Release app bundles JavaScript and runs without Metro. See [Catalyst setup](docs/CATALYST.md) for the framework requirement and validation.
 
 ## Run on iPhone
 
