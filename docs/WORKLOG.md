@@ -117,3 +117,15 @@ Added GRAPHICS-CONCEPT.md at the user's request, explaining React controls → n
 On `desktop-mac-catalyst`, enabled Catalyst in the durable Expo config plugin and React Native CocoaPods post-install hook. Replaced the ignored framework copy with the combined handoff XCFramework and added platform checks to preparation. The React UI and native rendering source are unchanged.
 
 Release build succeeded for arm64/x86_64; both app binaries report MACCATALYST. The app launched on Apple M2, reported the ANGLE Metal backend and ES3 context, and drew its first 1298×613 frame with no GL error. Runtime logs recorded subsequent loading of all ten models. TypeScript and iOS JS export passed. Intel execution and a fresh iOS native build remain untested; desktop visual inspection was unavailable because the UI tool timed out. See [CATALYST.md](CATALYST.md) for commands and evidence.
+
+## Remove obsolete Rend folders — 2026-10-05
+
+On the user's `cleanup` branch, removed `Rend Example Collection/` and `Rend Example Collection.xcodeproj/`, including the obsolete native example, prerelease JS code and tracked vendored node_modules. Preserved all ten OBJ/MTL pairs in `native/resources/models/` and both active lighting shaders in `native/resources/shaders/`, byte-for-byte with license comments. MTL companions are retained as original asset metadata; the viewer still uses its selected diffuse color.
+
+Updated the model-list generator and Xcode resource plugin to use the new locations. The plugin also removes stale Rend resource references when prebuilding an existing generated Xcode project. Current docs explain that the old source is available in Git history; earlier log sections remain historical records. Rendering code and ANGLE integration are unchanged.
+
+Validation: model-list generation found all ten models; TypeScript passed; Expo iOS prebuild succeeded with 12 relocated resource references and no stale Rend references. The Mac Catalyst release build succeeded, and all ten OBJ files and both shaders in its app bundle match the relocated files byte-for-byte. No new device installation was needed for this resource-path cleanup.
+
+At the user's request, subsequently opened the rebuilt Catalyst app and rebuilt/installed/launched the iPhone client to check the cleanup on both platforms. The iOS build succeeded with 0 errors / 58 warnings. Mac logs report `ANGLE (Metal Renderer: Apple M2)`, cone loading and a 1163×613 first frame with GL error `0x0`; iPhone logs report `ANGLE (Metal Renderer: Apple A15 GPU)`, cone loading and a 686×440 first frame with GL error `0x0`. The UI inspection tool timed out, so these are process/device-log checks; a visual/control check was requested from the user. Both apps and Metro were left running.
+
+The user confirmed both viewers work after checking model selection, Rotate/Pause, Fly/Reset and Wireframe. This confirms visible rendering and control behavior after removing the old Rend directories.

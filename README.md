@@ -2,7 +2,7 @@
 
 An iOS-first adaptation of [James Long's original experiment](https://archive.jlongster.com/First-Impressions-using-React-Native). React Native builds the controls; an Objective-C OpenGL ES view loads and animates the original OBJ models. No Three.js, React Three Fiber, or JavaScript scene engine.
 
-The historical `Rend Example Collection/` and `.xcodeproj` are preserved. Their exact prerelease ReactKit/Rend dependencies are missing, so the runnable app adapts that same UI-over-native-graphics concept using current React Native tooling. It does not claim to restore the missing Rend engine.
+The obsolete Rend source and Xcode project have been removed. The runnable app adapts the original UI-over-native-graphics concept using current React Native tooling. Its original models and lighting shaders live in `native/resources/`; the historical implementation remains available in Git history.
 
 This app uses the local MetalANGLE fork to translate GLES to Metal on iOS and Mac Catalyst. The native view requests an ES3 context; the existing ES2-compatible draw logic and shaders remain intact. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
 

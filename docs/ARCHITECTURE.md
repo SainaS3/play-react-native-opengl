@@ -2,6 +2,8 @@
 
 ## Original concept
 
+The historical source names below refer to Git history (for example, commit `6ac8b4c`); their obsolete directories were removed from the current checkout. Original OBJ models and the reused shaders remain in `native/resources/`.
+
 The [2015 article](https://archive.jlongster.com/First-Impressions-using-React-Native) uses React Native controls over an Objective-C OpenGL viewer. React renders the controls, not the graphics scene.
 
 | Historical file | Responsibility |
@@ -36,6 +38,7 @@ flowchart LR
 | `src/OpenGLView.tsx` | Thin requireNativeComponent wrapper, prop updates and native error events |
 | `native/LegacyOpenGLView.m` | UIView owning an MGLKView, ANGLE ES3 context, OBJ parser, mesh buffers, original shader compilation/linking, uniforms, native animation and cleanup |
 | `plugins/with-native-opengl.js` | Registers native source, original OBJ/shader resources and the local MetalANGLE pod in the generated Xcode target |
+| `native/resources/models/` / `shaders/` | Original OBJ/MTL assets and the two reused lighting shaders; shader license comments preserved |
 | `scripts/generate-models.mjs` | Generates filename list only; geometry never passes through JS |
 
 The RCTViewManager exposes model, meshColor, spinning, flying, wireframe and resetToken. RN delivers changes on the UI thread; native setters update controller state or reload mesh buffers. The current RN architecture hosts this classic native view through compatibility interop. There is no custom React reconciler for the graphics scene.
