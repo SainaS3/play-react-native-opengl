@@ -3,6 +3,7 @@
     "name": "React OpenGL Lab",
     "slug": "react-opengl-lab",
     "version": "1.0.0",
+    "newArchEnabled": false,
     "orientation": "default",
     "userInterfaceStyle": "dark",
     "ios": {

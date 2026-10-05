@@ -6,6 +6,12 @@ This branch requires the built local MetalANGLE XCFramework. See [ANGLE.md](ANGL
 
 ## Device build
 
+The app uses Paper, React Native's legacy UI renderer, with Expo SDK 54 / React Native 0.81.5. `app.json` disables the New Architecture. Run `npm run angle:configure` and rebuild the app after changing this setting; a Metro reload cannot switch native architectures. SDK 54 is the last Expo SDK supporting this option.
+
+The current stack still requires iOS 15.1 or newer and the MetalANGLE graphics backend. Switching to Paper does not lower the minimum iOS version. Devices limited to older iOS versions require a separate dependency and graphics compatibility assessment.
+
+For an installation that runs without Metro or a Mac connection, use `npm run ios:device -- --configuration Release` after configuring the native project.
+
 ```sh
 npm ci
 npm run angle:prepare
