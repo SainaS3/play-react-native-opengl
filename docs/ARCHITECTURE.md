@@ -41,7 +41,7 @@ flowchart LR
 | `native/resources/models/` / `shaders/` | Original OBJ/MTL assets and the two reused lighting shaders; shader license comments preserved |
 | `scripts/generate-models.mjs` | Generates filename list only; geometry never passes through JS |
 
-The RCTViewManager exposes model, meshColor, spinning, flying, wireframe and resetToken. RN delivers changes on the UI thread; native setters update controller state or reload mesh buffers. The current RN architecture hosts this classic native view through compatibility interop. There is no custom React reconciler for the graphics scene.
+The RCTViewManager exposes model, meshColor, spinning, flying, wireframe and resetToken. RN delivers changes on the UI thread; native setters update controller state or reload mesh buffers. The app uses the legacy Paper renderer (`newArchEnabled: false` in `app.json`), which hosts this classic native view directly. There is no custom React reconciler for the graphics scene.
 
 Native frame work stays in Objective-C. CADisplayLink computes capped elapsed seconds, changes rotation/position and asks MGLKView to display. MGLKView owns its framebuffer, depth buffer and presentation. The view explicitly owns its shader program and two VBOs (triangles and edges), disposing them with its context current. A weak display-link proxy avoids a view/link retain cycle. Rendering skips while the application is inactive; leaving the window stops the display link.
 
