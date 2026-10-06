@@ -23,7 +23,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, { error: string |
       <View style={styles.error}>
         <Text style={styles.body}>GPU scene unavailable: {this.state.error}</Text>
         <Text style={styles.body}>
-          Use the Windows UWP or iOS native build. See docs/UWP.md or docs/SETUP.md.
+          Use the Windows UWP, Mac Catalyst or iOS native build. See README.md.
         </Text>
       </View>
     ) : (
