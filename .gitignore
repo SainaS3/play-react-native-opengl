@@ -8,3 +8,16 @@
 .DS_Store
 *.log
 /native/vendor/
+/third_party/angle-uwp/
+/windows/**/Generated Files/
+/windows/**/Debug/
+/windows/**/Release/
+/windows/**/x64/
+/windows/**/ARM64/
+/windows/**/AppPackages/
+/windows/packages/
+/.vs/
+/windows/**/*.user
+/windows/**/*.VC.db
+/windows/**/Bundle/
+/windows/**/BundleBuilder/

@@ -1,5 +1,5 @@
 import { Component, type ReactNode, useState } from 'react';
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar } from 'react-native';
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, StatusBar, Platform } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { OpenGLView } from './OpenGLView';
 import modelNames from './generated/modelNames.json';
@@ -8,7 +8,7 @@ class SceneBoundary extends Component<{ children: ReactNode }, { error: string |
   state = { error: null as string | null };
   static getDerivedStateFromError(error: Error) { return { error: error.message }; }
   render() {
-    return this.state.error ? <View style={styles.error}><Text style={styles.body}>GPU scene unavailable: {this.state.error}</Text><Text style={styles.body}>Use the native development build on your iPhone. See docs/SETUP.md.</Text></View> : this.props.children;
+    return this.state.error ? <View style={styles.error}><Text style={styles.body}>GPU scene unavailable: {this.state.error}</Text><Text style={styles.body}>Use the Windows UWP or iOS native build. See docs/UWP.md or docs/SETUP.md.</Text></View> : this.props.children;
   }
 }
 
@@ -30,7 +30,7 @@ export default function App() {
     <View style={styles.header}><Text style={styles.eyebrow}>REACT × GPU / EXPERIMENT 01</Text><Text style={styles.title}>React controls. Native OpenGL.</Text><Text style={styles.body}>The original OBJ viewer concept: React UI over native OpenGL ES.</Text></View>
     <View style={styles.viewport}>
       <SceneBoundary><OpenGLView {...{ model, color, spinning, flying, wireframe, reset }} /></SceneBoundary>
-      <View pointerEvents="none" style={styles.caption}><Text style={styles.model}>{model}</Text><Text style={styles.small}>Objective-C owns the scene and animation loop</Text></View>
+      <View pointerEvents="none" style={styles.caption}><Text style={styles.model}>{model}</Text><Text style={styles.small}>{Platform.OS === 'windows' ? 'C++ / ANGLE owns the scene and animation loop' : 'Objective-C owns the scene and animation loop'}</Text></View>
     </View>
     <ScrollView style={styles.controls} contentContainerStyle={styles.controlsContent} keyboardShouldPersistTaps="handled">
       <View style={styles.row}>
