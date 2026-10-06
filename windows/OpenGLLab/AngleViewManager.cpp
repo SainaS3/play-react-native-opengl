@@ -19,7 +19,7 @@
 #include <EGL/eglext_angle.h>
 #include <GLES2/gl2.h>
 #include <angle_windowsstore.h>
-#include <DirectXMath.h>
+#include "../../native/shared/ViewerRenderer.h"
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -42,9 +42,6 @@ using namespace Windows::Foundation;
 static_assert(std::is_same<EGLNativeWindowType, ::IInspectable*>::value, "ANGLE must use UWP native windows");
 
 namespace {
-struct Vec { float x, y, z; };
-struct Vertex { Vec position, normal; };
-Vec Sub(Vec a, Vec b) { return {a.x-b.x,a.y-b.y,a.z-b.z}; }
 std::string ReadResource(std::wstring const& relative) {
     auto root = Windows::ApplicationModel::Package::Current().InstalledLocation().Path();
     std::ifstream stream(std::wstring(root)+L"\\resources\\"+relative, std::ios::binary);
@@ -70,29 +67,20 @@ struct Scene : std::enable_shared_from_this<Scene> {
     EGLDisplay display=EGL_NO_DISPLAY;
     EGLContext context=EGL_NO_CONTEXT;
     EGLSurface surface=EGL_NO_SURFACE;
-    GLuint program=0, triangles=0, lines=0;
-    GLsizei triangleCount=0, lineCount=0;
+    viewer::Renderer renderer;
+    viewer::Settings settings;
     std::string model="cone.obj", loadedModel;
-    unsigned color=0xe8b56b;
-    bool spinning=true, flying=false, wireframe=false, active=false, failed=false, suspended=false;
-    float angle=0, height=0, velocity=0;
+    bool active=false, failed=false, suspended=false;
     int64_t resetToken=0;
     bool checkedFrame=false;
     event_token rendering{}, suspending{}, resuming{}, visibility{};
     std::chrono::steady_clock::time_point last{};
     ~Scene() { Stop(); }
-    void Reset() { angle=height=velocity=0; last={}; }
+    void Reset() { renderer.resetAnimation(); last={}; }
     void Error(std::string const& message) {
         failed=true;
         Log(message);
         if (reportError) reportError(message);
-    }
-    GLuint Shader(GLenum type, std::wstring const& file) {
-        auto source=ReadResource(L"shaders\\"+file); auto text=source.c_str();
-        GLuint shader=glCreateShader(type); glShaderSource(shader,1,&text,nullptr); glCompileShader(shader);
-        GLint ok=0; glGetShaderiv(shader,GL_COMPILE_STATUS,&ok);
-        if (!ok) { char log[4096]{}; glGetShaderInfoLog(shader,sizeof(log),nullptr,log); glDeleteShader(shader); throw std::runtime_error(log); }
-        return shader;
     }
     void Init() {
         auto nativePanel=panel.get();
@@ -117,22 +105,16 @@ struct Scene : std::enable_shared_from_this<Scene> {
         if (surface==EGL_NO_SURFACE) EglCheck(EGL_FALSE,"eglCreateWindowSurface SwapChainPanel");
         EglCheck(eglMakeCurrent(display,surface,surface,context),"eglMakeCurrent");
         EglCheck(eglSwapInterval(display,1),"eglSwapInterval");
-        auto renderer=reinterpret_cast<char const*>(glGetString(GL_RENDERER));
-        Log(std::string("Renderer: ")+(renderer?renderer:"unknown"));
+        auto backend=reinterpret_cast<char const*>(glGetString(GL_RENDERER));
+        Log(std::string("Renderer: ")+(backend?backend:"unknown"));
         Log(std::string("GLES: ")+reinterpret_cast<char const*>(glGetString(GL_VERSION)));
-        GLuint vert=Shader(GL_VERTEX_SHADER,L"sVertexLighting.vsh"), frag=0;
-        try { frag=Shader(GL_FRAGMENT_SHADER,L"sVertexLighting.fsh"); } catch (...) { glDeleteShader(vert); throw; }
-        program=glCreateProgram(); glAttachShader(program,vert); glAttachShader(program,frag);
-        glBindAttribLocation(program,0,"a_position"); glBindAttribLocation(program,1,"a_normal");
-        glLinkProgram(program); glDeleteShader(vert); glDeleteShader(frag);
-        GLint linked=0; glGetProgramiv(program,GL_LINK_STATUS,&linked);
-        if (!linked) { char log[4096]{}; glGetProgramInfoLog(program,sizeof(log),nullptr,log); throw std::runtime_error(log); }
-        glGenBuffers(1,&triangles); glGenBuffers(1,&lines); LoadModel(); last={}; checkedFrame=false;
+        renderer.createResources(ReadResource(L"shaders\\sVertexLighting.vsh"),ReadResource(L"shaders\\sVertexLighting.fsh"));
+        LoadModel(); last={}; checkedFrame=false;
     }
     void Cleanup() noexcept {
         if (display!=EGL_NO_DISPLAY) {
             if (context!=EGL_NO_CONTEXT && surface!=EGL_NO_SURFACE && eglMakeCurrent(display,surface,surface,context)) {
-                if (program) glDeleteProgram(program); glDeleteBuffers(1,&triangles); glDeleteBuffers(1,&lines);
+                renderer.releaseResources();
             }
             eglMakeCurrent(display,EGL_NO_SURFACE,EGL_NO_SURFACE,EGL_NO_CONTEXT);
             if (surface!=EGL_NO_SURFACE) eglDestroySurface(display,surface);
@@ -140,52 +122,17 @@ struct Scene : std::enable_shared_from_this<Scene> {
             eglTerminate(display);
         }
         display=EGL_NO_DISPLAY; context=EGL_NO_CONTEXT; surface=EGL_NO_SURFACE;
-        program=triangles=lines=0; triangleCount=lineCount=0; loadedModel.clear();
+        renderer.abandonResources(); loadedModel.clear();
     }
     void LoadModel() {
         if (model==loadedModel) return;
+        // Validate before accessing a packaged path.
         if (model.size()<5 || model.substr(model.size()-4)!=".obj" || model.find_first_of("/\\:")!=std::string::npos)
             throw std::runtime_error("Invalid OBJ filename");
-        std::istringstream input(ReadResource(std::wstring(L"models\\")+std::wstring(to_hstring(model)))); std::string line;
-        std::vector<Vec> positions; std::vector<Vertex> vertices;
-        while (std::getline(input,line)) {
-            std::istringstream row(line.substr(0,line.find('#'))); std::string type; row>>type;
-            if (type=="v") {
-                Vec p{}; if (!(row>>p.x>>p.y>>p.z) || !std::isfinite(p.x)||!std::isfinite(p.y)||!std::isfinite(p.z)) throw std::runtime_error("Invalid OBJ position");
-                positions.push_back(p);
-            } else if (type=="f") {
-                std::vector<size_t> face; std::string token;
-                while (row>>token) {
-                    auto field=token.substr(0,token.find('/')); size_t parsed=0; auto index=std::stoll(field,&parsed);
-                    if (parsed!=field.size() || index==0) throw std::runtime_error("Invalid OBJ index");
-                    index=index>0?index-1:static_cast<int64_t>(positions.size())+index;
-                    if (index<0 || static_cast<size_t>(index)>=positions.size()) throw std::runtime_error("OBJ index out of bounds");
-                    face.push_back(static_cast<size_t>(index));
-                }
-                if (face.size()<3) throw std::runtime_error("OBJ face has fewer than three vertices");
-                for (size_t i=1;i+1<face.size();++i) {
-                    auto a=positions[face[0]],b=positions[face[i]],c=positions[face[i+1]];
-                    auto u=Sub(b,a),v=Sub(c,a); Vec n{u.y*v.z-u.z*v.y,u.z*v.x-u.x*v.z,u.x*v.y-u.y*v.x};
-                    float length=std::sqrt(n.x*n.x+n.y*n.y+n.z*n.z);
-                    n=length>1e-12f?Vec{n.x/length,n.y/length,n.z/length}:Vec{0,1,0};
-                    vertices.insert(vertices.end(),{{a,n},{b,n},{c,n}});
-                }
-            }
-        }
-        if (vertices.empty() || vertices.size()>static_cast<size_t>(std::numeric_limits<GLsizei>::max()/2)) throw std::runtime_error("Invalid mesh size");
-        Vec low=vertices.front().position, high=low;
-        for (auto const& v:vertices) { low={std::min(low.x,v.position.x),std::min(low.y,v.position.y),std::min(low.z,v.position.z)}; high={std::max(high.x,v.position.x),std::max(high.y,v.position.y),std::max(high.z,v.position.z)}; }
-        Vec center{(low.x+high.x)*.5f,(low.y+high.y)*.5f,(low.z+high.z)*.5f};
-        float scale=2.4f/std::max({high.x-low.x,high.y-low.y,high.z-low.z,1e-6f});
-        for (auto& v:vertices) { auto p=Sub(v.position,center); v.position={p.x*scale,p.y*scale,p.z*scale}; }
-        std::vector<Vertex> edges; edges.reserve(vertices.size()*2);
-        for (size_t i=0;i<vertices.size();i+=3) edges.insert(edges.end(),{vertices[i],vertices[i+1],vertices[i+1],vertices[i+2],vertices[i+2],vertices[i]});
-        glBindBuffer(GL_ARRAY_BUFFER,triangles); glBufferData(GL_ARRAY_BUFFER,vertices.size()*sizeof(Vertex),vertices.data(),GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER,lines); glBufferData(GL_ARRAY_BUFFER,edges.size()*sizeof(Vertex),edges.data(),GL_STATIC_DRAW);
-        triangleCount=static_cast<GLsizei>(vertices.size()); lineCount=static_cast<GLsizei>(edges.size()); loadedModel=model; Reset();
-        Log("Loaded "+model+": "+std::to_string(triangleCount)+" vertices");
+        renderer.loadModel(model,ReadResource(std::wstring(L"models\\")+std::wstring(to_hstring(model))));
+        loadedModel=model; last={};
+        Log("Loaded "+model+": "+std::to_string(renderer.triangleCount())+" vertices");
     }
-    void Uniform(char const* name,float x,float y,float z,float w) { glUniform4f(glGetUniformLocation(program,name),x,y,z,w); }
     void Frame() {
         auto nativePanel=panel.get();
         if (!nativePanel || failed || suspended || nativePanel.ActualWidth()<=0 || nativePanel.ActualHeight()<=0) { last={}; return; }
@@ -197,27 +144,7 @@ struct Scene : std::enable_shared_from_this<Scene> {
             EglCheck(eglQuerySurface(display,surface,EGL_HEIGHT,&viewHeight),"surface height");
             if (width<=0||viewHeight<=0) return;
             auto now=std::chrono::steady_clock::now(); float dt=last.time_since_epoch().count()?std::min(.05f,std::chrono::duration<float>(now-last).count()):0; last=now;
-            if (spinning) angle+=dt*.6f;
-            float acceleration=flying?.5f:0; height+=velocity*dt+.5f*acceleration*dt*dt; velocity+=acceleration*dt;
-            glViewport(0,0,width,viewHeight); glClearColor(.067f,.106f,.161f,1); glEnable(GL_DEPTH_TEST); glDisable(GL_CULL_FACE);
-            glClear(GL_COLOR_BUFFER_BIT|GL_DEPTH_BUFFER_BIT); glUseProgram(program);
-            using namespace DirectX;
-            // DirectX stores row-vector matrices; the same memory is their column-vector transpose in GLES.
-            auto mv=XMMatrixRotationY(angle)*XMMatrixTranslation(0,height,0);
-            float aspect=static_cast<float>(width)/viewHeight;
-            auto projection=XMMatrixOrthographicOffCenterRH(-1.8f*aspect,1.8f*aspect,-1.8f,1.8f,-10,10);
-            XMFLOAT4X4 matrix; XMStoreFloat4x4(&matrix,mv); glUniformMatrix4fv(glGetUniformLocation(program,"u_mvMatrix"),1,GL_FALSE,&matrix._11);
-            XMStoreFloat4x4(&matrix,mv*projection); glUniformMatrix4fv(glGetUniformLocation(program,"u_mvpMatrix"),1,GL_FALSE,&matrix._11);
-            float length=std::sqrt(.4f*.4f+.7f*.7f+1);
-            glUniform3f(glGetUniformLocation(program,"u_directionalLight.direction"),.4f/length,.7f/length,1/length);
-            glUniform3f(glGetUniformLocation(program,"u_directionalLight.halfplane"),0,0,1);
-            Uniform("u_directionalLight.ambientColor",.4f,.4f,.4f,1); Uniform("u_directionalLight.diffuseColor",1,1,1,1); Uniform("u_directionalLight.specularColor",.3f,.3f,.3f,1);
-            Uniform("u_material.ambientFactor",1,1,1,1); Uniform("u_material.diffuseFactor",((color>>16)&255)/255.f,((color>>8)&255)/255.f,(color&255)/255.f,1);
-            Uniform("u_material.specularFactor",.5f,.6f,.5f,1); glUniform1f(glGetUniformLocation(program,"u_material.shininess"),24);
-            glBindBuffer(GL_ARRAY_BUFFER,wireframe?lines:triangles); glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
-            glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),reinterpret_cast<void*>(offsetof(Vertex,position)));
-            glVertexAttribPointer(1,3,GL_FLOAT,GL_FALSE,sizeof(Vertex),reinterpret_cast<void*>(offsetof(Vertex,normal)));
-            glDrawArrays(wireframe?GL_LINES:GL_TRIANGLES,0,wireframe?lineCount:triangleCount);
+            renderer.draw(width,viewHeight,dt,settings);
             if (!checkedFrame) {
                 // Read a central tile once to establish actual drawing, beyond context/shader creation.
                 auto tileWidth=std::min(width,64),tileHeight=std::min(viewHeight,64);
@@ -306,15 +233,14 @@ struct AngleViewManager : implements<AngleViewManager,IViewManager,
                 if (name=="model") { scene->model=value.IsNull()?"cone.obj":value.AsString(); scene->failed=false; }
                 else if (name=="meshColor") {
                     auto color=value.IsNull()?std::string("#e8b56b"):value.AsString();
-                    if (color.size()!=7 || color[0]!='#' || color.find_first_not_of("0123456789abcdefABCDEF",1)!=std::string::npos) throw std::runtime_error("Invalid mesh color");
-                    scene->color=std::stoul(color.substr(1),nullptr,16);
-                } else if (name=="spinning") scene->spinning=value.IsNull()?true:value.AsBoolean();
-                else if (name=="flying") scene->flying=value.AsBoolean();
-                else if (name=="wireframe") scene->wireframe=value.AsBoolean();
+                    scene->settings.color=viewer::Renderer::parseColor(color);
+                } else if (name=="spinning") scene->settings.spinning=value.IsNull()?true:value.AsBoolean();
+                else if (name=="flying") scene->settings.flying=value.AsBoolean();
+                else if (name=="wireframe") scene->settings.wireframe=value.AsBoolean();
                 else if (name=="resetToken" && scene->resetToken!=value.AsInt64()) { scene->resetToken=value.AsInt64(); scene->Reset(); }
             }
-            Log("React settings: model="+scene->model+", spinning="+std::to_string(scene->spinning)+
-                ", flying="+std::to_string(scene->flying)+", wireframe="+std::to_string(scene->wireframe)+
+            Log("React settings: model="+scene->model+", spinning="+std::to_string(scene->settings.spinning)+
+                ", flying="+std::to_string(scene->settings.flying)+", wireframe="+std::to_string(scene->settings.wireframe)+
                 ", reset="+std::to_string(scene->resetToken));
         } catch (std::exception const& e) { scene->Error(e.what()); }
           catch (hresult_error const& e) { scene->Error(to_string(e.message())); }

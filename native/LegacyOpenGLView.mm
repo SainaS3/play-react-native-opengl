@@ -1,11 +1,12 @@
 #import <React/RCTViewManager.h>
 #import <MetalANGLE/MGLKit.h>
 #import <GLES3/gl3.h>
-#import "ViewerMath.h"
-#import <float.h>
+#include "shared/ViewerRenderer.h"
+#include <stdexcept>
+#include <cmath>
+#include <cstring>
 
 // React owns the controls. This native view owns the GL context and frame loop.
-typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
 @class LegacyOpenGLView;
 @interface GLFrameProxy : NSObject
 @property(nonatomic, weak) LegacyOpenGLView *view;
@@ -21,6 +22,7 @@ typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
 @property(nonatomic) NSInteger resetToken;
 @property(nonatomic, copy) RCTDirectEventBlock onError;
 - (void)tick:(CADisplayLink *)link;
+- (std::string)resource:(NSString *)name extension:(NSString *)extension;
 @end
 
 @implementation GLFrameProxy
@@ -30,10 +32,9 @@ typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
 @implementation LegacyOpenGLView {
     MGLKView *_glView;
     BOOL _reportedFrame;
-    GLuint _program, _triangles, _lines;
-    GLsizei _triangleCount, _lineCount;
-    float _angle, _height, _velocity;
+    viewer::Renderer _renderer;
     CFTimeInterval _lastTime;
+    float _frameElapsed;
     CADisplayLink *_displayLink;
     NSString *_failure;
 }
@@ -61,9 +62,10 @@ typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
         const char *renderer = (const char *)glGetString(GL_RENDERER);
         NSLog(@"ANGLE backend: %s | %s | %s", glGetString(GL_VENDOR), renderer, glGetString(GL_VERSION));
         if (!renderer || !strstr(renderer, "Metal")) { [self fail:@"ANGLE did not select the Metal backend"]; return self; }
-        [self createProgram];
-        glGenBuffers(1, &_triangles);
-        glGenBuffers(1, &_lines);
+        try {
+            _renderer.createResources([self resource:@"sVertexLighting" extension:@"vsh"],
+                                      [self resource:@"sVertexLighting" extension:@"fsh"]);
+        } catch (const std::exception& error) { [self fail:[NSString stringWithUTF8String:error.what()]]; return self; }
         self.model = @"cone.obj";
     }
     return self;
@@ -79,91 +81,25 @@ typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
     if (_failure && _onError) _onError(@{@"message": _failure});
 }
 
-- (GLuint)shader:(GLenum)type resource:(NSString *)name extension:(NSString *)extension {
+// Platform asset adapter. The shared renderer receives UTF-8 source only.
+- (std::string)resource:(NSString *)name extension:(NSString *)extension {
     NSString *path = [[NSBundle mainBundle] pathForResource:name ofType:extension];
     NSString *source = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nullptr] : nil;
-    if (!source) { [self fail:[NSString stringWithFormat:@"Missing shader %@.%@", name, extension]]; return 0; }
-    GLuint shader = glCreateShader(type);
-    const GLchar *text = source.UTF8String;
-    glShaderSource(shader, 1, &text, NULL);
-    glCompileShader(shader);
-    GLint compiled = 0;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
-    if (!compiled) {
-        GLchar log[2048]; glGetShaderInfoLog(shader, sizeof(log), NULL, log);
-        [self fail:[NSString stringWithUTF8String:log]]; glDeleteShader(shader); return 0;
-    }
-    return shader;
+    if (!source) throw std::runtime_error("Missing bundled resource: " + std::string(name.UTF8String));
+    return std::string(source.UTF8String);
 }
-- (void)createProgram {
-    GLuint vert = [self shader:GL_VERTEX_SHADER resource:@"sVertexLighting" extension:@"vsh"];
-    GLuint frag = [self shader:GL_FRAGMENT_SHADER resource:@"sVertexLighting" extension:@"fsh"];
-    if (!vert || !frag) { if (vert) glDeleteShader(vert); if (frag) glDeleteShader(frag); return; }
-    _program = glCreateProgram();
-    glAttachShader(_program, vert); glAttachShader(_program, frag);
-    glBindAttribLocation(_program, 0, "a_position"); glBindAttribLocation(_program, 1, "a_normal");
-    glLinkProgram(_program); glDeleteShader(vert); glDeleteShader(frag);
-    GLint linked = 0; glGetProgramiv(_program, GL_LINK_STATUS, &linked);
-    if (!linked) { GLchar log[2048]; glGetProgramInfoLog(_program, sizeof(log), NULL, log); [self fail:[NSString stringWithUTF8String:log]]; }
-}
-
-// OBJ positions and faces only; fan-triangulates polygons, supports negative indices.
-// The original assets' materials are replaced by the selected diffuse color.
 - (void)setModel:(NSString *)model {
     if (!_glView || _failure || [_model isEqualToString:model]) return;
+    if (!model) model = @"cone.obj";
     if (![model.lastPathComponent isEqualToString:model] || ![model.pathExtension isEqualToString:@"obj"]) { [self fail:@"Invalid model name"]; return; }
-    NSString *path = [[NSBundle mainBundle] pathForResource:model.stringByDeletingPathExtension ofType:@"obj"];
-    NSString *source = path ? [NSString stringWithContentsOfFile:path encoding:NSUTF8StringEncoding error:nullptr] : nil;
-    if (!source) { [self fail:[NSString stringWithFormat:@"Missing model %@", model]]; return; }
-    NSMutableData *positions = [NSMutableData data], *vertices = [NSMutableData data];
-    for (NSString *line in [source componentsSeparatedByCharactersInSet:NSCharacterSet.newlineCharacterSet]) {
-        NSString *clean = [[line componentsSeparatedByString:@"#"][0] stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceCharacterSet];
-        NSArray *parts = [[clean componentsSeparatedByCharactersInSet:NSCharacterSet.whitespaceCharacterSet] filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"length > 0"]];
-        if (parts.count >= 4 && [parts[0] isEqualToString:@"v"]) {
-            ViewerVector3 p = ViewerVector3Make([parts[1] floatValue], [parts[2] floatValue], [parts[3] floatValue]);
-            if (!isfinite(p.x) || !isfinite(p.y) || !isfinite(p.z)) { [self fail:@"Non-finite OBJ position"]; return; }
-            [positions appendBytes:&p length:sizeof(p)];
-        } else if (parts.count >= 4 && [parts[0] isEqualToString:@"f"]) {
-            NSMutableArray<NSNumber *> *indices = [NSMutableArray array];
-            NSInteger count = positions.length / sizeof(ViewerVector3);
-            for (NSUInteger i = 1; i < parts.count; i++) {
-                NSInteger index = [[[parts[i] componentsSeparatedByString:@"/"] firstObject] integerValue];
-                index = index > 0 ? index - 1 : count + index;
-                if (index < 0 || index >= count) { [self fail:@"OBJ face index outside vertex array"]; return; }
-                [indices addObject:@(index)];
-            }
-            const ViewerVector3 *points = static_cast<const ViewerVector3 *>(positions.bytes);
-            for (NSUInteger i = 1; i + 1 < indices.count; i++) {
-                ViewerVector3 a = points[indices[0].integerValue], b = points[indices[i].integerValue], c = points[indices[i + 1].integerValue];
-                ViewerVector3 normal = ViewerVector3CrossProduct(ViewerVector3Subtract(b, a), ViewerVector3Subtract(c, a));
-                float length = ViewerVector3Length(normal);
-                normal = length > 1e-12f ? ViewerVector3DivideScalar(normal, length) : ViewerVector3Make(0, 1, 0);
-                MeshVertex triangle[] = {{a, normal}, {b, normal}, {c, normal}};
-                [vertices appendBytes:triangle length:sizeof(triangle)];
-            }
-        }
-    }
-    if (!vertices.length) { [self fail:@"Model contains no triangle faces"]; return; }
-    MeshVertex *data = static_cast<MeshVertex *>(vertices.mutableBytes);
-    NSUInteger count = vertices.length / sizeof(MeshVertex);
-    ViewerVector3 low = ViewerVector3Make(FLT_MAX, FLT_MAX, FLT_MAX), high = ViewerVector3Make(-FLT_MAX, -FLT_MAX, -FLT_MAX);
-    for (NSUInteger i = 0; i < count; i++) { low = ViewerVector3Minimum(low, data[i].position); high = ViewerVector3Maximum(high, data[i].position); }
-    ViewerVector3 center = ViewerVector3MultiplyScalar(ViewerVector3Add(low, high), .5f), size = ViewerVector3Subtract(high, low);
-    float scale = 2.4f / fmaxf(fmaxf(size.x, size.y), fmaxf(size.z, 1e-6f));
-    NSMutableData *edges = [NSMutableData data];
-    for (NSUInteger i = 0; i < count; i++) data[i].position = ViewerVector3MultiplyScalar(ViewerVector3Subtract(data[i].position, center), scale);
-    for (NSUInteger i = 0; i < count; i += 3) {
-        MeshVertex edge[] = {data[i], data[i+1], data[i+1], data[i+2], data[i+2], data[i]};
-        [edges appendBytes:edge length:sizeof(edge)];
-    }
-    [MGLContext setCurrentContext:_glView.context];
-    glBindBuffer(GL_ARRAY_BUFFER, _triangles); glBufferData(GL_ARRAY_BUFFER, vertices.length, vertices.bytes, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, _lines); glBufferData(GL_ARRAY_BUFFER, edges.length, edges.bytes, GL_STATIC_DRAW);
-    _triangleCount = (GLsizei)count; _lineCount = (GLsizei)(edges.length / sizeof(MeshVertex));
-    _model = [model copy]; _height = _velocity = _angle = 0;
-    NSLog(@"Native OpenGL loaded %@ (%d vertices)", model, _triangleCount);
+    try {
+        if (![MGLContext setCurrentContext:_glView.context]) throw std::runtime_error("Cannot bind ANGLE context for mesh upload");
+        _renderer.loadModel(model.UTF8String, [self resource:model.stringByDeletingPathExtension extension:@"obj"]);
+        _model = [model copy]; _lastTime = 0;
+        NSLog(@"Native OpenGL loaded %@ (%d vertices)", model, _renderer.triangleCount());
+    } catch (const std::exception& error) { [self fail:[NSString stringWithUTF8String:error.what()]]; }
 }
-- (void)setResetToken:(NSInteger)resetToken { _resetToken = resetToken; _height = _velocity = _angle = 0; }
+- (void)setResetToken:(NSInteger)resetToken { _resetToken = resetToken; _renderer.resetAnimation(); _lastTime = 0; }
 - (void)didMoveToWindow {
     [super didMoveToWindow];
     if (self.window && _glView && !_failure && !_displayLink) {
@@ -177,57 +113,35 @@ typedef struct { ViewerVector3 position; ViewerVector3 normal; } MeshVertex;
     if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) { _lastTime = 0; return; }
     float dt = _lastTime ? fminf(fmaxf(link.timestamp - _lastTime, 0), .05f) : 0;
     _lastTime = link.timestamp;
-    if (_spinning) _angle += dt * .6f;
-    float acceleration = _flying ? .5f : 0;
-    _height += _velocity * dt + .5f * acceleration * dt * dt; _velocity += acceleration * dt;
+    _frameElapsed = dt;
     if (_failure || CGRectIsEmpty(_glView.bounds)) return;
     @try { [_glView display]; }
     @catch (NSException *exception) { [self fail:exception.reason]; [_displayLink invalidate]; _displayLink = nil; }
 }
-- (void)uniform4:(const char *)name x:(float)x y:(float)y z:(float)z w:(float)w { glUniform4f(glGetUniformLocation(_program, name), x, y, z, w); }
 - (void)mglkView:(MGLKView *)view drawInRect:(CGRect)rect {
-    glViewport(0, 0, (GLsizei)view.drawableWidth, (GLsizei)view.drawableHeight);
-    glClearColor(.067f, .106f, .161f, 1); glEnable(GL_DEPTH_TEST); glDisable(GL_CULL_FACE);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    if (!_program || !_triangleCount || view.drawableHeight == 0) return;
-    glUseProgram(_program);
-    float aspect = (float)view.drawableWidth / (float)view.drawableHeight;
-    ViewerMatrix4 model = ViewerMatrix4Multiply(ViewerMatrix4MakeTranslation(0, _height, 0), ViewerMatrix4MakeYRotation(_angle));
-    ViewerMatrix4 projection = ViewerMatrix4MakeOrtho(-1.8f * aspect, 1.8f * aspect, -1.8f, 1.8f, -10, 10);
-    ViewerMatrix4 mvp = ViewerMatrix4Multiply(projection, model);
-    glUniformMatrix4fv(glGetUniformLocation(_program, "u_mvMatrix"), 1, GL_FALSE, model.m);
-    glUniformMatrix4fv(glGetUniformLocation(_program, "u_mvpMatrix"), 1, GL_FALSE, mvp.m);
-    ViewerVector3 light = ViewerVector3Normalize(ViewerVector3Make(.4f, .7f, 1));
-    glUniform3f(glGetUniformLocation(_program, "u_directionalLight.direction"), light.x, light.y, light.z);
-    glUniform3f(glGetUniformLocation(_program, "u_directionalLight.halfplane"), 0, 0, 1);
-    [self uniform4:"u_directionalLight.ambientColor" x:.4f y:.4f z:.4f w:1];
-    [self uniform4:"u_directionalLight.diffuseColor" x:1 y:1 z:1 w:1];
-    [self uniform4:"u_directionalLight.specularColor" x:.3f y:.3f z:.3f w:1];
-    unsigned int rgb = 0xe8b56b;
-    if ([_meshColor hasPrefix:@"#"]) [[NSScanner scannerWithString:[_meshColor substringFromIndex:1]] scanHexInt:&rgb];
-    [self uniform4:"u_material.ambientFactor" x:1 y:1 z:1 w:1];
-    [self uniform4:"u_material.diffuseFactor" x:((rgb>>16)&255)/255.f y:((rgb>>8)&255)/255.f z:(rgb&255)/255.f w:1];
-    [self uniform4:"u_material.specularFactor" x:.5f y:.6f z:.5f w:1];
-    glUniform1f(glGetUniformLocation(_program, "u_material.shininess"), 24);
-    glBindBuffer(GL_ARRAY_BUFFER, _wireframe ? _lines : _triangles);
-    glEnableVertexAttribArray(0); glEnableVertexAttribArray(1);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void *)offsetof(MeshVertex, position));
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(MeshVertex), (void *)offsetof(MeshVertex, normal));
-    glDrawArrays(_wireframe ? GL_LINES : GL_TRIANGLES, 0, _wireframe ? _lineCount : _triangleCount);
-    if (!_reportedFrame) {
-        _reportedFrame = YES;
+    if (_failure) return;
+    // MGLKView has bound its drawable. Shared code never binds framebuffer zero
+    // and never presents; the view owns those operations, including MSAA.
+    try {
+        viewer::Settings settings;
+        settings.spinning = _spinning; settings.flying = _flying; settings.wireframe = _wireframe;
+        settings.color = viewer::Renderer::parseColor(_meshColor ? _meshColor.UTF8String : "#e8b56b");
+        _renderer.draw((int)view.drawableWidth, (int)view.drawableHeight, _frameElapsed, settings);
         GLenum error = glGetError();
-        NSLog(@"ANGLE first frame: %ldx%ld, framebuffer=%u, GL error=0x%x", (long)view.drawableWidth, (long)view.drawableHeight, view.defaultOpenGLFrameBufferID, error);
-        if (error != GL_NO_ERROR) [self fail:[NSString stringWithFormat:@"ANGLE draw error 0x%x", error]];
-    }
+        if (error != GL_NO_ERROR) { [self fail:[NSString stringWithFormat:@"ANGLE draw error 0x%x", error]]; return; }
+        if (!_reportedFrame) {
+            _reportedFrame = YES;
+            NSLog(@"ANGLE first frame: %ldx%ld, framebuffer=%u, GL error=0x%x", (long)view.drawableWidth, (long)view.drawableHeight, view.defaultOpenGLFrameBufferID, error);
+        }
+    } catch (const std::exception& error) { [self fail:[NSString stringWithUTF8String:error.what()]]; }
 }
 - (void)dealloc {
     [_displayLink invalidate];
     if (!_glView) return;
     MGLContext *previous = MGLContext.currentContext;
     MGLLayer *previousLayer = MGLContext.currentLayer;
-    [MGLContext setCurrentContext:_glView.context];
-    glDeleteBuffers(1, &_triangles); glDeleteBuffers(1, &_lines); if (_program) glDeleteProgram(_program);
+    if ([MGLContext setCurrentContext:_glView.context]) _renderer.releaseResources();
+    else _renderer.abandonResources();
     [MGLContext setCurrentContext:previous == _glView.context ? nil : previous forLayer:previous == _glView.context ? nil : previousLayer];
 }
 @end

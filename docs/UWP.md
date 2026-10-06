@@ -154,3 +154,17 @@ ARM64 device rendering and Store certification require separate validation.
 Suspension/device-loss paths are implemented but have not been fault-injected.
 Apple targets are not rebuilt on Windows. Check upstream licensing before
 distributing inherited models and shaders.
+
+## Shared renderer extraction (2026-10-06)
+
+The UWP adapter now calls `native/shared/ViewerRenderer.cpp`, the same scene/GLES
+implementation used by the Apple adapter. DirectXMath was replaced with the shared
+column-major OpenGL projection. EGL setup, SwapChainPanel presentation, React
+properties/events and suspend/device-loss handling remain Windows responsibilities.
+
+Run `scripts/test-shared-renderer.ps1` for a D3D11 ANGLE pbuffer smoke test. It
+compiles the production shared source and draws all ten bundled models, checks
+wireframe coverage, animation/reset, malformed input and resource/context recreation.
+The test needs the x64 ANGLE package and installed x64 Microsoft.VCLibs.140.00.
+This pbuffer test complements the UWP fresh-launch test; it does not fault-inject
+UWP suspension or physical device loss.

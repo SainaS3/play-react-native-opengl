@@ -129,3 +129,26 @@ Validation: model-list generation found all ten models; TypeScript passed; Expo 
 At the user's request, subsequently opened the rebuilt Catalyst app and rebuilt/installed/launched the iPhone client to check the cleanup on both platforms. The iOS build succeeded with 0 errors / 58 warnings. Mac logs report `ANGLE (Metal Renderer: Apple M2)`, cone loading and a 1163×613 first frame with GL error `0x0`; iPhone logs report `ANGLE (Metal Renderer: Apple A15 GPU)`, cone loading and a 686×440 first frame with GL error `0x0`. The UI inspection tool timed out, so these are process/device-log checks; a visual/control check was requested from the user. Both apps and Metro were left running.
 
 The user confirmed both viewers work after checking model selection, Rotate/Pause, Fly/Reset and Wireframe. This confirms visible rendering and control behavior after removing the old Rend directories.
+
+## 2026-10-06: shared C++ renderer with native platform adapters
+
+Extracted `viewer::Renderer` with Pimpl into `native/shared/`. Apple MGLKit and
+Windows EGL/SwapChainPanel adapters call the same OBJ, shader/buffer, animation,
+math and GLES drawing implementation. Hosting, assets, scheduling, context
+binding, presentation and recovery stay in adapters. Registered shared sources
+in the Expo plugin and MSBuild project. Both use OpenGL column-major ViewerMath
+and shared strict OBJ/color validation.
+
+Release x64 and ARM64 builds and package checks passed with zero errors. Existing
+Hermes and ATL search-path warnings remain. TypeScript, plugin syntax and diff
+checks passed. Fresh x64 UWP launch received React props, loaded the 186-vertex
+cone, selected AMD Radeon Graphics through ANGLE D3D11, read back 4096 pixels
+above background and presented 1373x595 with GL_NO_ERROR. The shared source also
+passed an x64 D3D11 pbuffer test: all ten models, wireframe, animation/reset,
+invalid input, negative indices, resource release/abandon and context recreation.
+Test log: `artifacts/renderer-tests/smoke.log`.
+
+Mac/iOS was not compiled or run here, per user scope. ARM64 runtime and actual
+UWP suspension/device-loss fault injection remain unverified. Mac artifact
+headers/symbol resolution and MGLKit/Catalyst/iOS behavior need Mac validation.
+See SHARED-RENDERER-HANDOFF.md.
