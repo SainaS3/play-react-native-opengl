@@ -1,6 +1,6 @@
 # Mac Catalyst
 
-Branch `desktop-mac-catalyst` starts from the working iOS MetalANGLE integration at `0c38464`. Catalyst uses the same Expo/React Native application, Objective-C MGLKView renderer, OBJ resources, and GLES shaders.
+Branch `desktop-mac-catalyst` starts from the working iOS MetalANGLE integration at `0c38464`. Catalyst uses the same Expo/React Native application, Objective-C++ MGLKView adapter over the shared C++ renderer, OBJ resources, and GLES shaders.
 
 ## Prepare, build, launch
 
@@ -26,7 +26,7 @@ npm run build:catalyst -- 'ARCHS=arm64 x86_64'
 
 ## Validation
 
-Runtime verification must check the actual application window plus `ANGLE backend` and `ANGLE first frame` logs. The ANGLE handoff's pbuffer smoke test alone does not establish that the UIKit drawable and React controls work. The fork's ES3 context still has the handoff's ES2 conformance limit.
+Runtime verification must check the actual application window plus `ANGLE backend` and `ANGLE first frame` logs. The ANGLE handoff's pbuffer smoke test alone does not establish that the UIKit drawable and React controls work. The viewer now requests GLES2, matching Windows and iOS; the framework's unused ES3 capability does not change this baseline.
 
 Local verification on 2026-10-05 (Asia/Ho_Chi_Minh), with launch just before midnight:
 
@@ -37,3 +37,15 @@ Local verification on 2026-10-05 (Asia/Ho_Chi_Minh), with launch just before mid
 - Desktop UI inspection timed out, so visual appearance, resizing, and every control were not independently verified by the agent. Runtime rendering and model changes are confirmed by app logs.
 
 Local evidence: `artifacts/catalyst/build.log`, `runtime.log`, and `export-ios.log` (ignored by Git).
+
+
+Shared-renderer follow-through on 2026-10-06: arm64/x86_64 Release build passed,
+and Apple M2 launch reported Metal, cone 186 vertices and a 1163×649 first frame
+with GL error 0x0. The same production C++ source passed the Metal smoke test:
+`bash scripts/test-shared-renderer-mac.sh`. UI automation timed out; current
+visual/control and lifecycle checks remain manual. See
+[Shared renderer handoff](SHARED-RENDERER-HANDOFF.md) for full evidence and logs.
+
+The subsequent GLES2 rebuild also passed for both architectures. Fresh Apple M2
+launch reports OpenGL ES 2.0.0, cone 186 vertices and a 1163×613 first frame
+with GL error 0x0. GLES2 is now the common baseline for Apple and Windows.

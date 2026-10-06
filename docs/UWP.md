@@ -17,7 +17,7 @@ implement viewer controls. `ReactPackageProvider.cpp` registers the ANGLE view
 manager; `AutolinkedNativeModules.*` remains in place for community modules.
 The Windows entrypoint `index.windows.js` registers `OpenGLLab` without loading
 Expo's Apple bootstrap. iOS/Mac Catalyst keep their existing Expo entrypoint
-and Objective-C/MetalANGLE implementation.
+and Objective-C++/MGLKit platform adapter over the same C++ renderer.
 
 ## Build Release x64 and ARM64
 
@@ -75,7 +75,7 @@ weak references avoid panel/renderer cycles. React view removal and XAML
 unload stop rendering and release resources.
 
 The renderer requests a matching ES 2 context and EGL_OPENGL_ES2_BIT config for
-the original ES2 shaders. Apple retains its ES3 request. It explicitly selects
+the original ES2 shaders. Apple also requests ES2. It explicitly selects
 ANGLE's D3D11 backend without a silent software fallback. The SwapChainPanel
 is retained by the React visual tree and passed as an ABI IInspectable*;
 a static assertion checks ANGLE's UWP native window type. No HWND is used.
@@ -168,3 +168,8 @@ wireframe coverage, animation/reset, malformed input and resource/context recrea
 The test needs the x64 ANGLE package and installed x64 Microsoft.VCLibs.140.00.
 This pbuffer test complements the UWP fresh-launch test; it does not fault-inject
 UWP suspension or physical device loss.
+
+The Mac checkout also provides `bash scripts/test-shared-renderer-mac.sh`, which
+runs the same production renderer and smoke-test cases against MetalANGLE with
+an ES2 context. Windows keeps its D3D11/ES2 path. Changes to platform context
+setup belong in the adapters; scene/rendering changes belong in `native/shared/`.

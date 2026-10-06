@@ -152,3 +152,66 @@ Mac/iOS was not compiled or run here, per user scope. ARM64 runtime and actual
 UWP suspension/device-loss fault injection remain unverified. Mac artifact
 headers/symbol resolution and MGLKit/Catalyst/iOS behavior need Mac validation.
 See SHARED-RENDERER-HANDOFF.md.
+
+
+## 2026-10-06: Apple completion of the shared-renderer handoff
+
+Windows had already extracted the one `viewer::Renderer` and converted the Apple
+adapter to Objective-C++. The Mac generated Xcode project was stale and did not
+compile the shared `.cpp`; ran `npm run angle:configure` to regenerate project
+sources and install pods. The durable Expo plugin now supplies both Apple
+adapter and shared source to the actual build. No second scene renderer was
+introduced: models, math, shaders, buffers, animation and draw remain in
+`native/shared/ViewerRenderer.cpp`. MGLContext/MGLKView and Windows EGL/WinRT
+stay in their respective adapters.
+
+Removed Apple’s duplicate time clamp so the shared renderer owns this behavior.
+Native failures now invalidate CADisplayLink immediately. Preserved Apple ES3,
+MGLKView child/delegate, depth/MSAA drawable and presentation ownership, bundled
+UTF-8 assets, React props/errors and explicit context-bound release/abandon.
+
+Added `scripts/test-shared-renderer-mac.sh`; extended the existing smoke-test
+host to select Metal/ES3 on Apple while retaining D3D11/ES2 on Windows. Fixed the
+EXT default-display argument for Darwin’s integer EGLNativeDisplayType. The
+production shared renderer passed Metal pixel readback for all ten models,
+wireframe, animation/reset, invalid input, relative indices, resource release,
+abandon and context recreation. Verified 116 artifact hashes and the selected
+MetalANGLE GLES2 header. Test evidence: `artifacts/renderer-tests-mac/smoke.log`.
+
+Catalyst Release build succeeded for arm64 and x86_64. Fresh Apple M2 launch:
+Metal backend, GLES3, cone 186 vertices, drawable 1163×649, framebuffer 0,
+GL error 0x0. Signed iPhone Release also built and installed successfully; launch
+was denied by the lock screen, then the user explicitly requested Mac-only
+runtime testing. No iOS runtime success is claimed. The initial iPhone JS bundle
+failure was a missing local Babel preset, repaired without tracked manifest
+changes; the rebuild passed. Both app binaries resolve inspected GLES symbols
+to MetalANGLE and have no direct Apple GLKit/OpenGLES dependency.
+
+TypeScript, plugin/script syntax and `git diff --check` passed. UI automation
+repeatedly timed out, so visible controls, resizing, detach/reattach and
+background/foreground remain unverified in this pass. Intel and simulator
+runtime were not tested. The Catalyst app is left running. Updated architecture,
+assessment, UWP cross-platform notes and the handoff with ownership, commands,
+logs and these validation limits. See SHARED-RENDERER-HANDOFF.md for full evidence.
+
+
+## GLES2 baseline (2026-10-06)
+
+At the user’s request, both Apple targets now import MetalANGLE’s GLES2 header
+and create `kMGLRenderingAPIOpenGLES2` contexts. Windows already requests EGL
+client version 2; the single shared renderer and existing shaders remain
+unchanged. ES3 is reserved for a future deliberate upgrade. Earlier ES3 runtime
+entries above are historical evidence before this change.
+
+The shared smoke test now requests ES2 on both platforms and asserts the runtime
+version. On Apple M2 it reports `OpenGL ES 2.0.0` through MetalANGLE and passes
+all ten models, wireframe, animation/reset, validation and resource recreation.
+The existing Mac runner is unchanged. iOS runtime testing remains skipped at
+the user’s request; its context selection shares this same Apple source.
+
+Catalyst Release rebuild passed for arm64/x86_64. Fresh Mac launch reports
+`ANGLE (Metal Renderer: Apple M2) | OpenGL ES 2.0.0`, cone 186 vertices and
+first frame 1163×613 with GL error 0x0. Logs are
+`artifacts/logs/shared-es2-catalyst-build.log` and
+`artifacts/logs/shared-es2-catalyst-runtime.log`. The ES2 app is left running.
+No new iOS rebuild/runtime or Windows rerun was performed for this change.

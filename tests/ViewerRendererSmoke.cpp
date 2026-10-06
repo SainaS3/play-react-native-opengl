@@ -37,10 +37,17 @@ int main(int argc, char** argv) {
         std::filesystem::path resources = std::filesystem::path(argv[1]) / "native/resources";
         auto getDisplay = reinterpret_cast<PFNEGLGETPLATFORMDISPLAYEXTPROC>(eglGetProcAddress("eglGetPlatformDisplayEXT"));
         Require(getDisplay != nullptr, "ANGLE display extension missing");
-        EGLint attributes[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE, EGL_NONE};
-        display = getDisplay(EGL_PLATFORM_ANGLE_ANGLE, EGL_DEFAULT_DISPLAY, attributes);
-        Require(display != EGL_NO_DISPLAY && eglInitialize(display, nullptr, nullptr), "Cannot initialize D3D11 ANGLE");
-        EGLint configAttrs[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+#if defined(__APPLE__)
+        constexpr EGLint backend = EGL_PLATFORM_ANGLE_TYPE_METAL_ANGLE;
+#else
+        constexpr EGLint backend = EGL_PLATFORM_ANGLE_TYPE_D3D11_ANGLE;
+#endif
+        EGLint attributes[] = {EGL_PLATFORM_ANGLE_TYPE_ANGLE, backend, EGL_NONE};
+        // EXT takes void*, while Darwin's EGLNativeDisplayType is an integer.
+        display = getDisplay(EGL_PLATFORM_ANGLE_ANGLE, nullptr, attributes);
+        Require(display != EGL_NO_DISPLAY && eglInitialize(display, nullptr, nullptr), "Cannot initialize ANGLE backend");
+        EGLint configAttrs[] = {EGL_SURFACE_TYPE, EGL_PBUFFER_BIT, EGL_RENDERABLE_TYPE,
+            EGL_OPENGL_ES2_BIT,
             EGL_RED_SIZE,8,EGL_GREEN_SIZE,8,EGL_BLUE_SIZE,8,EGL_ALPHA_SIZE,8,EGL_DEPTH_SIZE,24,EGL_NONE};
         EGLConfig config{}; EGLint count = 0;
         Require(eglChooseConfig(display, configAttrs, &config, 1, &count) && count, "No pbuffer config");
@@ -50,6 +57,10 @@ int main(int argc, char** argv) {
         surface = eglCreatePbufferSurface(display, config, surfaceAttrs);
         Require(context != EGL_NO_CONTEXT && surface != EGL_NO_SURFACE && eglMakeCurrent(display,surface,surface,context), "Cannot bind test context");
         std::cout << "Backend: " << glGetString(GL_RENDERER) << '\n';
+        const auto version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
+        Require(version && std::string(version).find("OpenGL ES 2.") == 0,
+                "Expected an OpenGL ES 2 context");
+        std::cout << "Version: " << version << '\n';
         auto create = [&] { renderer.createResources(Read(resources / "shaders/sVertexLighting.vsh"), Read(resources / "shaders/sVertexLighting.fsh")); };
         create();
         viewer::Settings settings; settings.spinning = false;

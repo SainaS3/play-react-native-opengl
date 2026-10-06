@@ -1,9 +1,8 @@
 #import <React/RCTViewManager.h>
 #import <MetalANGLE/MGLKit.h>
-#import <GLES3/gl3.h>
+#import <GLES2/gl2.h>
 #include "shared/ViewerRenderer.h"
 #include <stdexcept>
-#include <cmath>
 #include <cstring>
 
 // React owns the controls. This native view owns the GL context and frame loop.
@@ -42,9 +41,9 @@
 - (instancetype)init {
     if ((self = [super initWithFrame:CGRectZero])) {
         MGLContext *context = nil;
-        @try { context = [[MGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES3]; }
+        @try { context = [[MGLContext alloc] initWithAPI:kMGLRenderingAPIOpenGLES2]; }
         @catch (NSException *exception) { [self fail:exception.reason]; return self; }
-        if (!context || ![MGLContext setCurrentContext:context]) { [self fail:@"Cannot create ANGLE GLES 3 context"]; return self; }
+        if (!context || ![MGLContext setCurrentContext:context]) { [self fail:@"Cannot create ANGLE GLES 2 context"]; return self; }
         // MGLKView explicitly disallows subclassing: own it as a child UIView.
         _glView = [[MGLKView alloc] initWithFrame:self.bounds context:context];
         _glView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
@@ -73,6 +72,8 @@
 
 - (void)fail:(NSString *)message {
     _failure = message;
+    [_displayLink invalidate];
+    _displayLink = nil;
     NSLog(@"Native OpenGL: %@", message);
     if (_onError) _onError(@{@"message": message});
 }
@@ -111,7 +112,8 @@
 }
 - (void)tick:(CADisplayLink *)link {
     if (UIApplication.sharedApplication.applicationState != UIApplicationStateActive) { _lastTime = 0; return; }
-    float dt = _lastTime ? fminf(fmaxf(link.timestamp - _lastTime, 0), .05f) : 0;
+    // Shared renderer owns elapsed-time validation/clamping on both platforms.
+    float dt = _lastTime ? (float)(link.timestamp - _lastTime) : 0;
     _lastTime = link.timestamp;
     _frameElapsed = dt;
     if (_failure || CGRectIsEmpty(_glView.bounds)) return;
