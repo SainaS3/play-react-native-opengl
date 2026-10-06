@@ -44,6 +44,7 @@ flowchart LR
 | `src/App.tsx` | React Native controls and UI state; overlay caption |
 | `src/OpenGLView.tsx` | Thin requireNativeComponent wrapper, prop updates and native error events |
 | `apple_platform/LegacyOpenGLView.mm` | Apple adapter: UIView/MGLKView, ANGLE ES2 context, bundled resource access, CADisplayLink timing, error events and context-bound cleanup |
+| `apple_platform/LegacyOpenGLView.hpp` / `LegacyOpenGLViewManager.mm` | Apple view declaration and React module/property registration |
 | `shared/renderer/ViewerRenderer.hpp` / `.cpp` | Shared C++ interface and implementation: OBJ parsing, mesh buffers, shaders, uniforms, animation, draw and explicit resource lifecycle |
 | `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | Windows adapter: React props/events, SwapChainPanel, EGL/D3D11 context, packaged resource access, timing, readback, presentation and recovery |
 | `plugins/with-native-opengl.js` | Registers native source, original OBJ/shader resources and the local MetalANGLE pod in the generated Xcode target |

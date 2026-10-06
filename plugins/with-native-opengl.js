@@ -52,6 +52,34 @@ module.exports = (config) => {
     // xcode's writer serializes an undefined path as the literal "undefined".
     // Keep this a virtual group, relative to the ios project root.
     delete project.pbxGroupByName('Resources').path;
+    // node-xcode removal matches basenames, which can also delete a relocated file.
+    // Match full paths and remove every dependent reference instead.
+    const removeFileAtPath = (file) => {
+      const objects = project.hash.project.objects;
+      const references = project.pbxFileReferenceSection();
+      for (const [uuid, reference] of Object.entries(references)) {
+        if (reference?.path?.replace(/^"|"$/g, '') !== file) continue;
+        const removed = new Set([uuid]);
+        const buildFiles = project.pbxBuildFileSection();
+        for (const [buildUuid, buildFile] of Object.entries(buildFiles)) {
+          if (buildFile?.fileRef !== uuid) continue;
+          removed.add(buildUuid);
+          delete buildFiles[buildUuid];
+          delete buildFiles[`${buildUuid}_comment`];
+        }
+        for (const section of Object.values(objects)) {
+          for (const entry of Object.values(section)) {
+            if (!entry || typeof entry !== 'object') continue;
+            for (const key of ['files', 'children']) {
+              if (Array.isArray(entry[key]))
+                entry[key] = entry[key].filter((item) => !removed.has(item.value));
+            }
+          }
+        }
+        delete references[uuid];
+        delete references[`${uuid}_comment`];
+      }
+    };
     // Remove the old Objective-C entry when upgrading an existing project.
     for (const file of [
       '../native/LegacyOpenGLView.m',
@@ -59,10 +87,11 @@ module.exports = (config) => {
       '../native/shared/ViewerRenderer.cpp',
       '../apple_platform/LegacyOpenGLView.m',
     ]) {
-      project.removeSourceFile(file, { target }, mainGroup);
+      removeFileAtPath(file);
     }
     const sources = [
       '../apple_platform/LegacyOpenGLView.mm',
+      '../apple_platform/LegacyOpenGLViewManager.mm',
       '../shared/renderer/ViewerRenderer.cpp',
     ];
     const resources = readdirSync(
@@ -82,7 +111,7 @@ module.exports = (config) => {
         file.startsWith('../Rend Example Collection/') ||
         file.startsWith('../native/resources/')
       ) {
-        project.removeResourceFile(file, { target });
+        removeFileAtPath(file);
       }
     }
     for (const file of sources) {

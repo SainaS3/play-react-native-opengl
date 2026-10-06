@@ -49,3 +49,14 @@ visual/control and lifecycle checks remain manual. See
 The subsequent GLES2 rebuild also passed for both architectures. Fresh Apple M2
 launch reports OpenGL ES 2.0.0, cone 186 vertices and a 1163×613 first frame
 with GL error 0x0. GLES2 is now the common baseline for Apple and Windows.
+
+Validation after the platform-folder refactor on 2026-10-07: universal Release
+build passed; both slices report `MACCATALYST`, minimum OS 15.1. Fresh Apple M2
+launch reports GLES2 over Metal, cone with 186 vertices and a 1163×613 first frame
+with GL error `0x0`. The shared renderer smoke test passes for all ten models,
+wireframe, animation/reset and context recreation. The Apple host now has a
+`.hpp` view declaration and a separate `.mm` React manager. Full-path Xcode
+migration survives repeated regeneration without deleting relocated sources.
+Logs: `artifacts/catalyst/{build,runtime,smoke}-refactor.log`. UI inspection timed
+out; visual/control checks, Intel runtime and a fresh iOS native build remain
+unverified in this pass.

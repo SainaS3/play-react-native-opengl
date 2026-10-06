@@ -1,5 +1,4 @@
-#import <React/RCTViewManager.h>
-#import <MetalANGLE/MGLKit.h>
+#import "LegacyOpenGLView.hpp"
 #import <GLES2/gl2.h>
 #include "../shared/renderer/ViewerRenderer.hpp"
 #include <stdexcept>
@@ -12,14 +11,8 @@
 - (void)tick:(CADisplayLink *)link;
 @end
 
-@interface LegacyOpenGLView : UIView <MGLKViewDelegate>
-@property(nonatomic, copy) NSString *model;
-@property(nonatomic, copy) NSString *meshColor;
-@property(nonatomic) BOOL spinning;
-@property(nonatomic) BOOL flying;
-@property(nonatomic) BOOL wireframe;
-@property(nonatomic) NSInteger resetToken;
-@property(nonatomic, copy) RCTDirectEventBlock onError;
+// Internal callbacks and asset loading stay private to the Apple host.
+@interface LegacyOpenGLView ()
 - (void)tick:(CADisplayLink *)link;
 - (std::string)resource:(NSString *)name extension:(NSString *)extension;
 @end
@@ -215,23 +208,4 @@
     [MGLContext setCurrentContext:previous == _glView.context ? nil : previous
                          forLayer:previous == _glView.context ? nil : previousLayer];
 }
-@end
-
-@interface LegacyOpenGLViewManager : RCTViewManager
-@end
-@implementation LegacyOpenGLViewManager
-RCT_EXPORT_MODULE(LegacyOpenGLView)
-+ (BOOL)requiresMainQueueSetup {
-    return YES;
-}
-- (UIView *)view {
-    return [LegacyOpenGLView new];
-}
-RCT_EXPORT_VIEW_PROPERTY(model, NSString)
-RCT_EXPORT_VIEW_PROPERTY(meshColor, NSString)
-RCT_EXPORT_VIEW_PROPERTY(spinning, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(flying, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(wireframe, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(resetToken, NSInteger)
-RCT_EXPORT_VIEW_PROPERTY(onError, RCTDirectEventBlock)
 @end

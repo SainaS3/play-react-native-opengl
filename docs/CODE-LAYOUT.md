@@ -28,8 +28,10 @@ both the precompiled header and its forced include.
 
 Apple implementation files use `.mm` because they mix Objective-C and C++.
 Objective-C++ can include `.hpp` directly, including Objective-C declarations.
-Use `.hpp` for a future Objective-C++ header in this project as well. The Apple
-view's interfaces are private to its `.mm`, so no extra header is needed.
+Use `.hpp` for Objective-C++ headers in this project as well.
+`apple_platform/LegacyOpenGLView.hpp` declares the Apple view and its React-facing
+properties. `LegacyOpenGLView.mm` owns context setup, assets, frame scheduling and
+drawing; `LegacyOpenGLViewManager.mm` registers the React module and properties.
 Pure Objective-C `.m` files cannot include a header containing C++ declarations.
 
 The root `.clang-format` defines four-space indentation, a 100-column limit and
@@ -46,3 +48,8 @@ After this directory migration, regenerate an existing Apple project with
 removes old source/resource references before registering the new paths.
 Windows CLI discovery uses `react-native.config.js` and its explicit
 `microsoft_platform` source directory.
+
+Vendored MetalANGLE lives only in ignored `apple_platform/vendor/`. The old
+`native/` folder is obsolete after migration; prepare the new artifact and
+regenerate the Apple project before removing an old local copy. Xcode migration
+removes references by full path so relocated files with the same name survive.
