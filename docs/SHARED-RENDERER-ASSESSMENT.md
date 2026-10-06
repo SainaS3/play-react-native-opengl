@@ -10,7 +10,7 @@ The Apple adapter must remain Objective-C++ to use UIKit/MGLKit. The Windows ada
 
 ## Current implementation
 
-| Responsibility | Apple: native/LegacyOpenGLView.mm | Windows: windows/OpenGLLab/AngleViewManager.cpp |
+| Responsibility | Apple: apple_platform/LegacyOpenGLView.mm | Windows: microsoft_platform/OpenGLLab/AngleViewManager.cpp |
 | --- | --- | --- |
 | Native host | UIView with an MGLKView child/delegate | SwapChainPanel |
 | Context | MGLContext, GLES 2 requested | EGL, GLES 2 requested, D3D11 explicitly selected |
@@ -30,7 +30,7 @@ The Apple source calls Objective-C classes MGLContext, MGLKView and MGLLayer. It
 
 The local Apple pod configuration links MetalANGLE.xcframework and supplies its Khronos headers. Windows ANGLE.UWP.props links libEGL.lib/libGLESv2.lib and packages their DLLs. Each app selects its ANGLE implementation through platform build/link configuration, and creates a native context at runtime. This is not runtime switching between Metal and DirectX inside one executable.
 
-Original Windows assessment evidence limit: native/vendor and the exact Darwin framework headers/binary were absent in the Windows checkout. The sibling angle checkout lacks the Darwin handoff and MGLKit files. docs/WORKLOG.md records earlier Apple symbol inspection resolving GLES calls to MetalANGLE, but this assessment cannot independently confirm the exact artifact's export names, header macros or ABI. Recheck its selected-slice headers and exports on the Mac before committing the migration. Do not substitute the Windows ANGLE headers for that artifact.
+Original Windows assessment evidence limit: apple_platform/vendor and the exact Darwin framework headers/binary were absent in the Windows checkout. The sibling angle checkout lacks the Darwin handoff and MGLKit files. docs/WORKLOG.md records earlier Apple symbol inspection resolving GLES calls to MetalANGLE, but this assessment cannot independently confirm the exact artifact's export names, header macros or ABI. Recheck its selected-slice headers and exports on the Mac before committing the migration. Do not substitute the Windows ANGLE headers for that artifact.
 
 If a future requirement truly loads multiple GLES implementations into one process, add a runtime-owned GLES dispatch table with correctly typed function pointers/calling conventions and strict context ownership. Existing globally linked gl* calls cannot select arbitrary libraries by themselves. That requirement is separate from sharing source across Apple and Windows apps.
 

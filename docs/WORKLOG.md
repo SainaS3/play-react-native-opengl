@@ -215,3 +215,42 @@ first frame 1163×613 with GL error 0x0. Logs are
 `artifacts/logs/shared-es2-catalyst-build.log` and
 `artifacts/logs/shared-es2-catalyst-runtime.log`. The ES2 app is left running.
 No new iOS rebuild/runtime or Windows rerun was performed for this change.
+
+## 2026-10-07 — Mac follow-through after platform folder refactor
+
+Reviewed `4b7f86661aac7503d3dd3e6159431d448bd156a8` on macOS. Kept the
+`apple_platform/`, `microsoft_platform/`, `shared/renderer/` and
+`shared/resources/` boundaries. Prepared the combined MetalANGLE artifact in
+`apple_platform/vendor/`, compared it byte-for-byte with the old local
+`native/vendor/` copy, then removed the obsolete local `native/` directory.
+
+Separated the Apple view declaration and React-facing properties into
+`LegacyOpenGLView.hpp`, and moved React module/property registration into
+`LegacyOpenGLViewManager.mm`. The original module name remains
+`LegacyOpenGLView`. Context, drawable, assets and frame scheduling remain in
+`LegacyOpenGLView.mm`; shaders, GLES draws, mesh preparation and animation remain
+in the unchanged shared renderer. Handwritten C++ and Objective-C++ headers use
+`.hpp`; generated and vendor headers retain their original names.
+
+Fixed the Expo plugin's stale-file removal: node-xcode matches build files by
+basename, so removing `../native/LegacyOpenGLView.mm` could delete the build entry
+for the relocated `../apple_platform/LegacyOpenGLView.mm`. Migration now matches
+full paths and removes dependent build/group references. An in-memory Xcode
+project check added old and relocated sources together, applied the plugin twice,
+and confirmed exactly one build entry per current source with no dangling phase
+entries. Regenerated the Apple project and CocoaPods from the new paths.
+
+TypeScript checks, plugin syntax and diff whitespace checks passed. The production
+shared renderer passed the Mac Catalyst Metal smoke test for all ten models,
+wireframe, animation/reset, invalid inputs, resource release/abandon and context
+recreation. Logs are in `artifacts/catalyst/smoke-refactor.log`.
+
+Universal Release build succeeded for arm64 and x86_64. `vtool` reports
+`MACCATALYST` with minimum OS 15.1 for both executable slices. Fresh Apple M2
+launch reports `ANGLE (Metal Renderer: Apple M2)`, `OpenGL ES 2.0.0`, cone with
+186 vertices, and a 1163×613 first frame with GL error `0x0`. The rebuilt app is
+left running and bundles JavaScript for offline Release operation. Build and
+runtime evidence: `artifacts/catalyst/build-refactor.log` and
+`artifacts/catalyst/runtime-refactor.log`. Desktop UI inspection timed out, so
+visual appearance, resizing and React control interactions remain unverified in
+this pass. Intel runtime and a fresh iOS native build were not tested.

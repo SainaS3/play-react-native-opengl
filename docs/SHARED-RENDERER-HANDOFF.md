@@ -4,12 +4,12 @@ Implemented 2026-10-06 for Windows and Apple hosts. Windows evidence and the Mac
 
 ## Pattern and ownership
 
-`viewer::Renderer` in `native/shared/ViewerRenderer.h` is the common C++ facade. Its private implementation owns OBJ parsing/normalization, triangle and edge buffers, GLSL programs, lighting, OpenGL matrix math and animation. Both native adapters call that same implementation; the adapters own their platform APIs and lifecycles. This is an adapter boundary with Pimpl hiding GLES handles, rather than a proxy around every GLES function.
+`viewer::Renderer` in `shared/renderer/ViewerRenderer.hpp` is the common C++ facade. Its private implementation owns OBJ parsing/normalization, triangle and edge buffers, GLSL programs, lighting, OpenGL matrix math and animation. Both native adapters call that same implementation; the adapters own their platform APIs and lifecycles. This is an adapter boundary with Pimpl hiding GLES handles, rather than a proxy around every GLES function.
 
 | Adapter | Runtime | Responsibilities |
 | --- | --- | --- |
-| `native/LegacyOpenGLView.mm` | MetalANGLE framework | MGLContext/MGLKView, NSBundle text, CADisplayLink timing, React props/errors, framebuffer/presentation ownership |
-| `windows/OpenGLLab/AngleViewManager.cpp` | libEGL/libGLESv2, D3D11 | EGL/SwapChainPanel, packaged resource text, CompositionTarget timing, React props/errors, swap, readback, suspension and recreation |
+| `apple_platform/LegacyOpenGLView.mm` | MetalANGLE framework | MGLContext/MGLKView, NSBundle text, CADisplayLink timing, React props/errors, framebuffer/presentation ownership |
+| `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | libEGL/libGLESv2, D3D11 | EGL/SwapChainPanel, packaged resource text, CompositionTarget timing, React props/errors, swap, readback, suspension and recreation |
 
 The runtime is linked separately for each platform. No shared public header includes MGLKit, WinRT, EGL or GLES. The shared `.cpp` uses the target's Khronos GLES2 header and standard `gl*` names. Apple and Windows both request GLES2. The used draw operations remain GLES2-compatible.
 
@@ -49,11 +49,11 @@ No Mac/iOS compilation or runtime success is claimed by the Windows checks.
 ## Apple follow-through (2026-10-06)
 
 The Mac checkout regenerated Xcode/CocoaPods with `npm run angle:configure`.
-Both `LegacyOpenGLView.mm` and `native/shared/ViewerRenderer.cpp` are registered
+Both `LegacyOpenGLView.mm` and `shared/renderer/ViewerRenderer.cpp` are registered
 in the generated application's Sources phase. Keep source registration in the
 Expo plugin; the ignored Xcode project is not the durable configuration.
 
-Verified all 116 files against the supplied `native/vendor/SHA256SUMS.json`.
+Verified all 116 files against the supplied `apple_platform/vendor/SHA256SUMS.json`.
 The compiler header trace selects the Catalyst slice's `Headers/GLES2/gl2.h`.
 The public renderer interface remains free of Objective-C, WinRT and GL types.
 Apple forwards elapsed seconds to the common clamp and stops CADisplayLink on
