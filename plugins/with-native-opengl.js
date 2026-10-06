@@ -37,7 +37,7 @@ module.exports = config => {
     delete project.pbxGroupByName('Resources').path;
     // Remove the old Objective-C entry when upgrading an existing project.
     project.removeSourceFile('../native/LegacyOpenGLView.m', { target }, mainGroup);
-    const sources = ['../native/LegacyOpenGLView.mm'];
+    const sources = ['../native/LegacyOpenGLView.mm', '../native/shared/ViewerRenderer.cpp'];
     const resources = readdirSync(path.join(config.modRequest.projectRoot, 'native/resources/models'))
       .filter(name => name.endsWith('.obj'))
       .map(name => `../native/resources/models/${name}`);
@@ -52,7 +52,7 @@ module.exports = config => {
       if (!project.hasFile(file)) project.addSourceFile(file, { target }, mainGroup);
       // node-xcode does not infer the Objective-C++ type for .mm files.
       for (const reference of Object.values(project.pbxFileReferenceSection())) {
-        if (reference?.path?.replace(/^"|"$/g, '') === file) reference.lastKnownFileType = 'sourcecode.cpp.objcpp';
+        if (reference?.path?.replace(/^"|"$/g, '') === file) reference.lastKnownFileType = file.endsWith('.mm') ? 'sourcecode.cpp.objcpp' : 'sourcecode.cpp.cpp';
       }
     }
     for (const file of resources) if (!project.hasFile(file)) project.addResourceFile(file, { target });

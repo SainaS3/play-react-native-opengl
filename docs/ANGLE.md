@@ -28,7 +28,7 @@ The source repo does not contain the framework binary. Another machine needs the
 - `ViewerMetalANGLE.podspec` embeds the vendored dynamic XCFramework through CocoaPods. CocoaPods selects the device/simulator slice and adds Embed & Sign and runtime search paths.
 - The Expo plugin adds the local pod and removes stale app links to Apple GLKit/OpenGLES. Khronos GLES headers come from the selected MetalANGLE slice.
 - The native React view owns an `MGLKView` child and implements its delegate. MGLKit explicitly says not to subclass `MGLKView`.
-- `MGLContext` requests GLES 3. The old mesh buffers, OBJ parsing, GLSL shaders, uniforms, draw calls and native display-link animation keep their logic.
+- `MGLContext` now requests GLES 2 on both iOS and Mac Catalyst. The old mesh buffers, OBJ parsing, GLSL shaders, uniforms, draw calls and native display-link animation keep their logic.
 - `ViewerMath.h` provides the small column-major vector/matrix subset previously obtained through GLKit, avoiding that framework and its Apple GLES dependencies.
 
 A header/linker change alone cannot replace Apple's EAGL context and drawable lifecycle. MGLKit provides the corresponding ANGLE surface API; the changes here are at that platform boundary.
@@ -41,7 +41,7 @@ At context creation the viewer logs `GL_VENDOR`, `GL_RENDERER` and `GL_VERSION`.
 
 The first drawable frame logs its pixel dimensions, framebuffer ID and `glGetError`. After configuring drawable formats, the viewer rebinds its EGL context: those MGLKit setters can release/unbind the surface. Context/shader/drawing failures are forwarded to the existing React error overlay. MGLKView owns the framebuffer; the viewer does not assume framebuffer zero or manually present it.
 
-The fork advertises ES 3.0 but maximum conformant ES 2.0. This viewer exercises its existing ES2-compatible path in an ES3 context; it does not establish ES3 conformance or validate unrelated ES3 features. Build success alone does not establish visible rendering. Device results are recorded in WORKLOG.md.
+The fork advertises ES 3.0 but maximum conformant ES 2.0. This viewer now requests an ES2 context on every platform. The framework’s ES3 capability remains unused; no ES3 feature or conformance claim is made. Build success alone does not establish visible rendering. Device results are recorded in WORKLOG.md.
 
 ## Observed device result
 

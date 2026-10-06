@@ -103,6 +103,8 @@
     </ClInclude>
     <ClInclude Include="ReactPackageProvider.h" />
     <ClInclude Include="AngleViewManager.h" />
+    <ClInclude Include="..\..\native\shared\ViewerRenderer.h" />
+    <ClInclude Include="..\..\native\ViewerMath.h" />
     <ClInclude Include="AutolinkedNativeModules.g.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="App.h">
@@ -135,6 +137,9 @@
     </ClCompile>
     <ClCompile Include="ReactPackageProvider.cpp" />
     <ClCompile Include="AngleViewManager.cpp" />
+    <ClCompile Include="..\..\native\shared\ViewerRenderer.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="AutolinkedNativeModules.g.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
