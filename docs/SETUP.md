@@ -23,7 +23,7 @@ Select the phone and your development signing identity. Unlock/trust the Mac, en
 
 In Xcode → Settings → Accounts, select Personal Team and create an Apple Development certificate via Manage Certificates. If the installed app cannot launch because its developer is untrusted, trust your profile in Settings → General → VPN & Device Management on the phone.
 
-The scripts set `LC_ALL` and `LANG` to UTF-8 for CocoaPods without modifying global shell configuration. The native source/resources/frameworks are added through `plugins/with-native-opengl.js`, so Expo prebuild can reproduce the integration. The local pod embeds and signs the XCFramework. Run `angle:configure` after switching to this branch or replacing the framework: Expo device builds may reuse cached pods even after the Podfile changes. Native directories remain ignored; keep durable changes in `native/` and the plugin.
+The scripts set `LC_ALL` and `LANG` to UTF-8 for CocoaPods without modifying global shell configuration. The native source/resources/frameworks are added through `plugins/with-native-opengl.js`, so Expo prebuild can reproduce the integration. The local pod embeds and signs the XCFramework. Run `angle:configure` after switching to this branch or replacing the framework: Expo device builds may reuse cached pods even after the Podfile changes. Native directories remain ignored; keep durable changes in `apple_platform/` and the plugin.
 
 ## Development
 
@@ -47,8 +47,8 @@ npm run ios:device
 
 JS export does not validate Objective-C or produce a signed IPA. Native compilation and phone launch are the decisive checks. Native error events report missing shaders/meshes or shader compilation failures in the control UI. Use Xcode/device logs for native crashes.
 
-`npm ci` generates only `src/generated/modelNames.json`; the Xcode plugin bundles all ten original OBJ files from `native/resources/models/` and both original vertex-lighting shaders from `native/resources/shaders/`. No geometry conversion through a third-party engine is needed.
+`npm ci` generates only `src/generated/modelNames.json`; the Xcode plugin bundles all ten original OBJ files from `shared/resources/models/` and both original vertex-lighting shaders from `shared/resources/shaders/`. No geometry conversion through a third-party engine is needed.
 
 ## Historical target
 
-The obsolete Rend source tree, vendored prerelease JavaScript dependencies and original Xcode project were removed. They depended on missing external ReactKit/Rend code and are not build targets for this app. Original assets are retained in `native/resources/`; the old source is available in Git history (for example, commit `6ac8b4c`). The original README is preserved in `ORIGINAL-README.md`.
+The obsolete Rend source tree, vendored prerelease JavaScript dependencies and original Xcode project were removed. They depended on missing external ReactKit/Rend code and are not build targets for this app. Original assets are retained in `shared/resources/`; the old source is available in Git history (for example, commit `6ac8b4c`). The original README is preserved in `ORIGINAL-README.md`.

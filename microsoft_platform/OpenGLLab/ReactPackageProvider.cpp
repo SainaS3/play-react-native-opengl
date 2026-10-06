@@ -1,15 +1,13 @@
-#include "pch.h"
-#include "ReactPackageProvider.h"
+#include "pch.hpp"
+#include "ReactPackageProvider.hpp"
 #include "NativeModules.h"
-#include "AngleViewManager.h"
+#include "AngleViewManager.hpp"
 
 using namespace winrt::Microsoft::ReactNative;
 
-namespace winrt::OpenGLLab::implementation
-{
+namespace winrt::OpenGLLab::implementation {
 
-void ReactPackageProvider::CreatePackage(IReactPackageBuilder const &packageBuilder) noexcept
-{
+void ReactPackageProvider::CreatePackage(IReactPackageBuilder const &packageBuilder) noexcept {
     AddAttributedModules(packageBuilder, true);
     packageBuilder.AddViewManager(L"LegacyOpenGLView", [] { return MakeAngleViewManager(); });
 }

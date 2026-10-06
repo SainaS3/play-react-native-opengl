@@ -78,7 +78,9 @@
   <ItemDefinitionGroup>
     <ClCompile>
       <PrecompiledHeader>Use</PrecompiledHeader>
-      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
+      <PrecompiledHeaderFile>pch.hpp</PrecompiledHeaderFile>
+      <ForcedIncludeFiles>pch.hpp;%(ForcedIncludeFiles)</ForcedIncludeFiles>
+      <AdditionalIncludeDirectories>$(GeneratedFilesDir)HeaderCompatibility;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PrecompiledHeaderOutputFile>$(IntDir)pch.pch</PrecompiledHeaderOutputFile>
       <WarningLevel>Level4</WarningLevel>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
@@ -97,17 +99,17 @@
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="MainPage.h">
+    <ClInclude Include="MainPage.hpp">
       <DependentUpon>MainPage.xaml</DependentUpon>
       <SubType>Code</SubType>
     </ClInclude>
-    <ClInclude Include="ReactPackageProvider.h" />
-    <ClInclude Include="AngleViewManager.h" />
-    <ClInclude Include="..\..\native\shared\ViewerRenderer.h" />
-    <ClInclude Include="..\..\native\ViewerMath.h" />
+    <ClInclude Include="ReactPackageProvider.hpp" />
+    <ClInclude Include="AngleViewManager.hpp" />
+    <ClInclude Include="..\..\shared\renderer\ViewerRenderer.hpp" />
+    <ClInclude Include="..\..\shared\renderer\ViewerMath.hpp" />
     <ClInclude Include="AutolinkedNativeModules.g.h" />
-    <ClInclude Include="pch.h" />
-    <ClInclude Include="App.h">
+    <ClInclude Include="pch.hpp" />
+    <ClInclude Include="App.hpp">
       <DependentUpon>App.xaml</DependentUpon>
     </ClInclude>
   </ItemGroup>
@@ -137,8 +139,9 @@
     </ClCompile>
     <ClCompile Include="ReactPackageProvider.cpp" />
     <ClCompile Include="AngleViewManager.cpp" />
-    <ClCompile Include="..\..\native\shared\ViewerRenderer.cpp">
+    <ClCompile Include="..\..\shared\renderer\ViewerRenderer.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <ForcedIncludeFiles />
     </ClCompile>
     <ClCompile Include="AutolinkedNativeModules.g.cpp" />
     <ClCompile Include="pch.cpp">
@@ -168,13 +171,28 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\..\third_party\angle-uwp\LICENSE"><Link>ANGLE-LICENSE.txt</Link><DeploymentContent>true</DeploymentContent></None>
-    <None Include="..\..\native\resources\models\*.obj"><Link>resources\models\%(Filename)%(Extension)</Link><DeploymentContent>true</DeploymentContent></None>
-    <None Include="..\..\native\resources\shaders\*"><Link>resources\shaders\%(Filename)%(Extension)</Link><DeploymentContent>true</DeploymentContent></None>
+    <None Include="..\..\shared\resources\models\*.obj"><Link>resources\models\%(Filename)%(Extension)</Link><DeploymentContent>true</DeploymentContent></None>
+    <None Include="..\..\shared\resources\shaders\*"><Link>resources\shaders\%(Filename)%(Extension)</Link><DeploymentContent>true</DeploymentContent></None>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ReactNativeWindowsTargets">
     <Import Project="$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Uwp.CppApp.targets" Condition="Exists('$(ReactNativeWindowsDir)\PropertySheets\External\Microsoft.ReactNative.Uwp.CppApp.targets')" />
   </ImportGroup>
+  <!-- C++/WinRT, XAML and RNW generators include these fixed .h names.
+       Keep the actual application headers as .hpp; generate the aliases. -->
+  <ItemGroup>
+    <HeaderCompatibility Include="App;MainPage;pch" />
+  </ItemGroup>
+  <Target Name="GenerateHeaderCompatibility" BeforeTargets="PrepareForBuild">
+    <MakeDir Directories="$(GeneratedFilesDir)HeaderCompatibility" />
+    <WriteLinesToFile
+      File="$(GeneratedFilesDir)HeaderCompatibility\%(HeaderCompatibility.Identity).h"
+      Lines="#pragma once%0A#include &quot;$(MSBuildProjectDirectory)\%(HeaderCompatibility.Identity).hpp&quot;"
+      Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+      <FileWrites Include="$(GeneratedFilesDir)HeaderCompatibility\%(HeaderCompatibility.Identity).h" />
+    </ItemGroup>
+  </Target>
   <Target Name="EnsureReactNativeWindowsTargets" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references targets in your node_modules\react-native-windows folder that are missing. The missing file is {0}.</ErrorText>

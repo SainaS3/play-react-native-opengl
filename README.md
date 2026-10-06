@@ -12,7 +12,7 @@ npm ci
 .\scripts\run-uwp.ps1 -Architecture x64
 ```
 
-Open `windows/OpenGLLab.sln` for Visual Studio builds. See
+Open `microsoft_platform/OpenGLLab.sln` for Visual Studio builds. See
 [Windows UWP setup and verification](docs/UWP.md) for prerequisites, package
 locations, signing and runtime evidence. Packages are unsigned by default;
 the run script registers a local development layout with Developer Mode.
@@ -21,9 +21,9 @@ the run script registers a local development layout with Developer Mode.
 
 An iOS-first adaptation of [James Long's original experiment](https://archive.jlongster.com/First-Impressions-using-React-Native). React Native builds the controls; an Objective-C OpenGL ES view loads and animates the original OBJ models. No Three.js, React Three Fiber, or JavaScript scene engine.
 
-The obsolete Rend source and Xcode project have been removed. The runnable app adapts the original UI-over-native-graphics concept using current React Native tooling. Its original models and lighting shaders live in `native/resources/`; the historical implementation remains available in Git history.
+The obsolete Rend source and Xcode project have been removed. The runnable app adapts the original UI-over-native-graphics concept using current React Native tooling. Its original models and lighting shaders live in `shared/resources/`; the historical implementation remains available in Git history.
 
-This app uses the local MetalANGLE fork to translate GLES to Metal on iOS and Mac Catalyst. The native view requests an ES3 context; the existing ES2-compatible draw logic and shaders remain intact. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
+This app uses the local MetalANGLE fork to translate GLES to Metal on iOS and Mac Catalyst. The native view requests an ES2 context and calls the shared C++ renderer. See [ANGLE integration](docs/ANGLE.md) for artifact preparation and verification.
 
 ## Run on Mac Catalyst
 
@@ -60,7 +60,7 @@ Open the installed React OpenGL Lab on the phone. Native edits require rebuildin
 
 ```text
 React Native controls → native view properties/commands
-                      → Objective-C mesh/controller state
+                      → shared C++ mesh and animation state
                       → GLES shaders and buffers
                       → MetalANGLE → Metal → GPU
 ```
@@ -70,6 +70,7 @@ The native `CADisplayLink` advances rotation/flight and draws frames without Rea
 - [Setup](docs/SETUP.md)
 - [Graphics concept and why init changed](docs/GRAPHICS-CONCEPT.md)
 - [Architecture and source map](docs/ARCHITECTURE.md)
+- [Code layout and header conventions](docs/CODE-LAYOUT.md)
 - [Custom renderer/painter concepts](docs/RENDERER-IDEAS.md)
 - [Work log](docs/WORKLOG.md)
 - [Original README](docs/ORIGINAL-README.md)

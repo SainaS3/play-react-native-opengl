@@ -1,10 +1,10 @@
-#include "pch.h"
+#include "pch.hpp"
 
-#include "App.h"
+#include "App.hpp"
 
 #include "AutolinkedNativeModules.g.h"
-#include "ReactPackageProvider.h"
-#include "AngleViewManager.h"
+#include "ReactPackageProvider.hpp"
+#include "AngleViewManager.hpp"
 
 using namespace winrt;
 using namespace xaml;
@@ -12,22 +12,22 @@ using namespace xaml::Controls;
 using namespace xaml::Navigation;
 
 using namespace Windows::ApplicationModel;
-namespace winrt::OpenGLLab::implementation
-{
+namespace winrt::OpenGLLab::implementation {
 /// <summary>
 /// Initializes the singleton application object.  This is the first line of
 /// authored code executed, and as such is the logical equivalent of main() or
 /// WinMain().
 /// </summary>
-App::App() noexcept
-{
+App::App() noexcept {
     LogAngleHost("Starting React Native UWP host");
-    InstanceSettings().NativeLogger([](Microsoft::ReactNative::LogLevel, hstring const& message) {
+    InstanceSettings().NativeLogger([](Microsoft::ReactNative::LogLevel, hstring const &message) {
         LogAngleHost("React: " + to_string(message));
     });
-    InstanceSettings().InstanceLoaded([](Windows::Foundation::IInspectable const&, Microsoft::ReactNative::InstanceLoadedEventArgs const& args) {
-        LogAngleHost(args.Failed() ? "React bundle failed to load" : "React bundle loaded");
-    });
+    InstanceSettings().InstanceLoaded(
+        [](Windows::Foundation::IInspectable const &,
+           Microsoft::ReactNative::InstanceLoadedEventArgs const &args) {
+            LogAngleHost(args.Failed() ? "React bundle failed to load" : "React bundle loaded");
+        });
 #if BUNDLE
     JavaScriptBundleFile(L"index.windows");
     InstanceSettings().UseFastRefresh(false);
@@ -56,8 +56,7 @@ App::App() noexcept
 /// will be used such as when the application is launched to open a specific file.
 /// </summary>
 /// <param name="e">Details about the launch request and process.</param>
-void App::OnLaunched(activation::LaunchActivatedEventArgs const& e)
-{
+void App::OnLaunched(activation::LaunchActivatedEventArgs const &e) {
     super::OnLaunched(e);
 
     Frame rootFrame = Window::Current().Content().as<Frame>();
@@ -68,12 +67,12 @@ void App::OnLaunched(activation::LaunchActivatedEventArgs const& e)
 /// Invoked when the application is activated by some means other than normal launching.
 /// </summary>
 void App::OnActivated(Activation::IActivatedEventArgs const &e) {
-  auto preActivationContent = Window::Current().Content();
-  super::OnActivated(e);
-  if (!preActivationContent && Window::Current()) {
-    Frame rootFrame = Window::Current().Content().as<Frame>();
-    rootFrame.Navigate(xaml_typename<MainPage>(), nullptr);
-  }
+    auto preActivationContent = Window::Current().Content();
+    super::OnActivated(e);
+    if (!preActivationContent && Window::Current()) {
+        Frame rootFrame = Window::Current().Content().as<Frame>();
+        rootFrame.Navigate(xaml_typename<MainPage>(), nullptr);
+    }
 }
 
 /// <summary>
@@ -83,8 +82,8 @@ void App::OnActivated(Activation::IActivatedEventArgs const &e) {
 /// </summary>
 /// <param name="sender">The source of the suspend request.</param>
 /// <param name="e">Details about the suspend request.</param>
-void App::OnSuspending([[maybe_unused]] Windows::Foundation::IInspectable const& sender, [[maybe_unused]] SuspendingEventArgs const& e)
-{
+void App::OnSuspending([[maybe_unused]] Windows::Foundation::IInspectable const &sender,
+                       [[maybe_unused]] SuspendingEventArgs const &e) {
     // Save application state and stop any background activity
 }
 
@@ -93,10 +92,9 @@ void App::OnSuspending([[maybe_unused]] Windows::Foundation::IInspectable const&
 /// </summary>
 /// <param name="sender">The Frame which failed navigation</param>
 /// <param name="e">Details about the navigation failure</param>
-void App::OnNavigationFailed(Windows::Foundation::IInspectable const&, NavigationFailedEventArgs const& e)
-{
+void App::OnNavigationFailed(Windows::Foundation::IInspectable const &,
+                             NavigationFailedEventArgs const &e) {
     throw hresult_error(E_FAIL, hstring(L"Failed to load Page ") + e.SourcePageType().Name);
 }
 
 } // namespace winrt::OpenGLLab::implementation
-

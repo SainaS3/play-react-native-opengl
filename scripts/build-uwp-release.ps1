@@ -18,7 +18,7 @@ try {
     & node node_modules/@react-native-community/cli/build/bin.js autolink-windows
     if ($LASTEXITCODE -ne 0) { throw 'React Native Windows autolinking failed' }
     foreach ($arch in $Architectures) {
-        $arguments = @('windows\OpenGLLab.sln','/restore','/nologo','/m:1','/v:minimal',
+        $arguments = @('microsoft_platform\OpenGLLab.sln','/restore','/nologo','/m:1','/v:minimal',
             '/p:PreferredToolArchitecture=x64','/p:CL_MPCount=2',
             '/p:Configuration=Release',"/p:Platform=$arch","/p:PlatformToolset=$Toolset",
             "/p:WindowsTargetPlatformVersion=$SDK", '/p:AppxBundle=Never',

@@ -26,7 +26,7 @@ npm ci
 .\scripts\build-uwp-release.ps1
 ```
 
-Open `windows/OpenGLLab.sln` in Visual Studio. The solution has exactly two
+Open `microsoft_platform/OpenGLLab.sln` in Visual Studio. The solution has exactly two
 configurations: Release x64 and Release ARM64. Defaults match this machine's
 Visual Studio Community 2026 UWP v145 toolchain and Windows SDK 10.0.26100.0.
 Install C++ UWP components for both architectures on another machine, or pass
@@ -38,7 +38,7 @@ Windows 0.81.4. Windows intentionally uses RNW's legacy Paper/UWP architecture:
 Do not upgrade RNW independently to 0.82+ while targeting UWP. The project uses
 the matching Microsoft.ReactNative/Cxx NuGet packages rather than compiling
 the entire framework from source. NuGet restore runs as part of the build;
-`windows/NuGet.Config` includes Microsoft's public React Native feed.
+`microsoft_platform/NuGet.Config` includes Microsoft's public React Native feed.
 
 The build script generates the model list, runs Windows autolinking, verifies
 and copies the ANGLE package, restores NuGet, builds/bundles the application,
@@ -157,7 +157,7 @@ distributing inherited models and shaders.
 
 ## Shared renderer extraction (2026-10-06)
 
-The UWP adapter now calls `native/shared/ViewerRenderer.cpp`, the same scene/GLES
+The UWP adapter now calls `shared/renderer/ViewerRenderer.cpp`, the same scene/GLES
 implementation used by the Apple adapter. DirectXMath was replaced with the shared
 column-major OpenGL projection. EGL setup, SwapChainPanel presentation, React
 properties/events and suspend/device-loss handling remain Windows responsibilities.
@@ -172,4 +172,4 @@ UWP suspension or physical device loss.
 The Mac checkout also provides `bash scripts/test-shared-renderer-mac.sh`, which
 runs the same production renderer and smoke-test cases against MetalANGLE with
 an ES2 context. Windows keeps its D3D11/ES2 path. Changes to platform context
-setup belong in the adapters; scene/rendering changes belong in `native/shared/`.
+setup belong in the adapters; scene/rendering changes belong in `shared/renderer/`.

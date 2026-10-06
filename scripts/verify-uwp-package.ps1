@@ -27,10 +27,10 @@ try {
     }
     $bundle = $archive.GetEntry('Bundle/index.windows.bundle')
     if (!$bundle -or $bundle.Length -lt 10000) { throw 'Missing or empty packaged React Native JavaScript bundle' }
-    foreach ($file in Get-ChildItem "$repo\native\resources\models" -Filter *.obj) {
+    foreach ($file in Get-ChildItem "$repo\shared\resources\models" -Filter *.obj) {
         if (!$archive.GetEntry('resources/models/'+$file.Name)) { throw "Missing model: $($file.Name)" }
     }
-    foreach ($file in Get-ChildItem "$repo\native\resources\shaders" -File) {
+    foreach ($file in Get-ChildItem "$repo\shared\resources\shaders" -File) {
         if (!$archive.GetEntry('resources/shaders/'+$file.Name)) { throw "Missing shader: $($file.Name)" }
     }
     $reader = [IO.StreamReader]::new($archive.GetEntry('AppxManifest.xml').Open())

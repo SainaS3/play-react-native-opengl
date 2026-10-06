@@ -13,7 +13,7 @@ npm run angle:configure
 npm run ios:device
 ```
 
-`angle:prepare` copies the entire device/simulator/Catalyst XCFramework from the sibling ANGLE checkout to ignored `native/vendor/`. It requires all three variants. See [Mac Catalyst](CATALYST.md) for the desktop build. For a different checkout:
+`angle:prepare` copies the entire device/simulator/Catalyst XCFramework from the sibling ANGLE checkout to ignored `apple_platform/vendor/`. It requires all three variants. See [Mac Catalyst](CATALYST.md) for the desktop build. For a different checkout:
 
 ```sh
 npm run angle:prepare -- /path/to/angle
@@ -29,7 +29,7 @@ The source repo does not contain the framework binary. Another machine needs the
 - The Expo plugin adds the local pod and removes stale app links to Apple GLKit/OpenGLES. Khronos GLES headers come from the selected MetalANGLE slice.
 - The native React view owns an `MGLKView` child and implements its delegate. MGLKit explicitly says not to subclass `MGLKView`.
 - `MGLContext` now requests GLES 2 on both iOS and Mac Catalyst. The old mesh buffers, OBJ parsing, GLSL shaders, uniforms, draw calls and native display-link animation keep their logic.
-- `ViewerMath.h` provides the small column-major vector/matrix subset previously obtained through GLKit, avoiding that framework and its Apple GLES dependencies.
+- `ViewerMath.hpp` provides the small column-major vector/matrix subset previously obtained through GLKit, avoiding that framework and its Apple GLES dependencies.
 
 A header/linker change alone cannot replace Apple's EAGL context and drawable lifecycle. MGLKit provides the corresponding ANGLE surface API; the changes here are at that platform boundary.
 

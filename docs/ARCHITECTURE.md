@@ -1,8 +1,11 @@
 # React Native UI over a native OpenGL ES scene
 
+See [Code layout and conventions](CODE-LAYOUT.md) for platform directories,
+header extensions and native formatting.
+
 ## Original concept
 
-The historical source names below refer to Git history (for example, commit `6ac8b4c`); their obsolete directories were removed from the current checkout. Original OBJ models and the reused shaders remain in `native/resources/`.
+The historical source names below refer to Git history (for example, commit `6ac8b4c`); their obsolete directories were removed from the current checkout. Original OBJ models and the reused shaders remain in `shared/resources/`.
 
 The [2015 article](https://archive.jlongster.com/First-Impressions-using-React-Native) uses React Native controls over an Objective-C OpenGL viewer. React renders the controls, not the graphics scene.
 
@@ -40,11 +43,11 @@ flowchart LR
 | --- | --- |
 | `src/App.tsx` | React Native controls and UI state; overlay caption |
 | `src/OpenGLView.tsx` | Thin requireNativeComponent wrapper, prop updates and native error events |
-| `native/LegacyOpenGLView.mm` | Apple adapter: UIView/MGLKView, ANGLE ES2 context, bundled resource access, CADisplayLink timing, error events and context-bound cleanup |
-| `native/shared/ViewerRenderer.h` / `.cpp` | Shared C++ interface and implementation: OBJ parsing, mesh buffers, shaders, uniforms, animation, draw and explicit resource lifecycle |
-| `windows/OpenGLLab/AngleViewManager.cpp` | Windows adapter: React props/events, SwapChainPanel, EGL/D3D11 context, packaged resource access, timing, readback, presentation and recovery |
+| `apple_platform/LegacyOpenGLView.mm` | Apple adapter: UIView/MGLKView, ANGLE ES2 context, bundled resource access, CADisplayLink timing, error events and context-bound cleanup |
+| `shared/renderer/ViewerRenderer.hpp` / `.cpp` | Shared C++ interface and implementation: OBJ parsing, mesh buffers, shaders, uniforms, animation, draw and explicit resource lifecycle |
+| `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | Windows adapter: React props/events, SwapChainPanel, EGL/D3D11 context, packaged resource access, timing, readback, presentation and recovery |
 | `plugins/with-native-opengl.js` | Registers native source, original OBJ/shader resources and the local MetalANGLE pod in the generated Xcode target |
-| `native/resources/models/` / `shaders/` | Original OBJ/MTL assets and the two reused lighting shaders; shader license comments preserved |
+| `shared/resources/models/` / `shaders/` | Original OBJ/MTL assets and the two reused lighting shaders; shader license comments preserved |
 | `scripts/generate-models.mjs` | Generates filename list only; geometry never passes through JS |
 
 The RCTViewManager exposes model, meshColor, spinning, flying, wireframe and resetToken. RN delivers changes on the UI thread; native setters update controller state or reload mesh buffers. The app uses the legacy Paper renderer (`newArchEnabled: false` in `app.json`), which hosts this classic native view directly. There is no custom React reconciler for the graphics scene.
@@ -59,13 +62,13 @@ The missing Rend engine is replaced by a small native controller/view, and the o
 
 A custom renderer for your later idea is separate research: React could eventually send native scene operations, but it is not part of this viewer.
 
-On `angle-es3`, the GLES API resolves to MetalANGLE rather than Apple OpenGLES. `ViewerMath.h` keeps vector/matrix calculations independent of GLKit. The React view owns an MGLKView child because the wrapper API forbids subclassing MGLKView. The branch retains the same mesh parser, animation, shader sources and draw calls; context/drawable setup and native linking change. See [ANGLE.md](ANGLE.md).
+On `angle-es3`, the GLES API resolves to MetalANGLE rather than Apple OpenGLES. `ViewerMath.hpp` keeps vector/matrix calculations independent of GLKit. The React view owns an MGLKView child because the wrapper API forbids subclassing MGLKView. The branch retains the same mesh parser, animation, shader sources and draw calls; context/drawable setup and native linking change. See [ANGLE.md](ANGLE.md).
 
 The Apple Objective-C++ adapter and Windows C++/WinRT adapter now call `viewer::Renderer`, a C++ facade with a private implementation. UIKit/MGLKit and EGL/SwapChainPanel stay in their adapters. Each build links its own ANGLE runtime. See [Shared renderer handoff](SHARED-RENDERER-HANDOFF.md) for ownership rules and validation.
 
 ## Maintaining one renderer
 
-Change scene behavior in `native/shared/ViewerRenderer.cpp` and its public C++ interface in `ViewerRenderer.h`. Both iOS and Mac Catalyst compile that exact source, as does Windows UWP. There are two platform hosts, but only one mesh parser, camera, animation and GLES draw implementation. MGLKit class names and WinRT/EGL types never enter the shared public interface. No per-GLES-call forwarding layer is needed because each executable links one ANGLE runtime.
+Change scene behavior in `shared/renderer/ViewerRenderer.cpp` and its public C++ interface in `ViewerRenderer.hpp`. Both iOS and Mac Catalyst compile that exact source, as does Windows UWP. There are two platform hosts, but only one mesh parser, camera, animation and GLES draw implementation. MGLKit class names and WinRT/EGL types never enter the shared public interface. No per-GLES-call forwarding layer is needed because each executable links one ANGLE runtime.
 
 Apple calls `createResources` after binding its configured MGLContext, `loadModel` with bundled UTF-8 text, and `draw` from MGLKView’s drawable-bound delegate. React props become `viewer::Settings`; reset calls `resetAnimation`. MGLKView retains depth/MSAA/framebuffer and presentation ownership. Windows performs the corresponding context/surface work through EGL. Elapsed-time clamping belongs to the common renderer. An Apple native error stops its frame scheduler and reaches the React error overlay.
 
