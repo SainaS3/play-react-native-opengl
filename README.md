@@ -1,5 +1,24 @@
 # React Native controls over native OpenGL ES
 
+## Windows UWP — React Native UI + C++ ANGLE renderer
+
+Windows runs the shared React Native controls over a C++ ANGLE graphics view, with
+OpenGL ES translated to D3D11 by the local ANGLE package. Release **x64** and
+**ARM64** builds use Visual Studio/MSBuild and bundle JavaScript for offline execution.
+
+```powershell
+npm ci
+.\scripts\build-uwp-release.ps1
+.\scripts\run-uwp.ps1 -Architecture x64
+```
+
+Open `windows/OpenGLLab.sln` for Visual Studio builds. See
+[Windows UWP setup and verification](docs/UWP.md) for prerequisites, package
+locations, signing and runtime evidence. Packages are unsigned by default;
+the run script registers a local development layout with Developer Mode.
+
+## iOS and Mac Catalyst
+
 An iOS-first adaptation of [James Long's original experiment](https://archive.jlongster.com/First-Impressions-using-React-Native). React Native builds the controls; an Objective-C OpenGL ES view loads and animates the original OBJ models. No Three.js, React Three Fiber, or JavaScript scene engine.
 
 The obsolete Rend source and Xcode project have been removed. The runnable app adapts the original UI-over-native-graphics concept using current React Native tooling. Its original models and lighting shaders live in `native/resources/`; the historical implementation remains available in Git history.

@@ -18,7 +18,9 @@
     "angle:prepare": "node scripts/prepare-angle.mjs",
     "build:catalyst": "bash scripts/build-catalyst.sh",
     "catalyst": "open 'artifacts/catalyst/DerivedData/Build/Products/Release-maccatalyst/ReactOpenGLLab.app'",
-    "angle:configure": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo prebuild --platform ios --no-install && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 pod install --project-directory=ios"
+    "angle:configure": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo prebuild --platform ios --no-install && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 pod install --project-directory=ios",
+    "windows": "powershell -ExecutionPolicy Bypass -File scripts/run-uwp.ps1",
+    "build:uwp": "powershell -ExecutionPolicy Bypass -File scripts/build-uwp-release.ps1"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -30,13 +32,25 @@
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
     "react-native-safe-area-context": "~5.6.0",
-    "react-native-web": "^0.21.0"
+    "react-native-web": "^0.21.0",
+    "react-native-windows": "0.81.4"
   },
   "devDependencies": {
+    "@react-native-community/cli": "20.0.2",
+    "@react-native/metro-config": "0.81.5",
     "@types/react": "~19.1.10",
+    "babel-preset-expo": "~54.0.0",
+    "metro-config": "^0.83.3",
     "typescript": "~5.9.2"
   },
   "engines": {
     "node": ">=20.19.0"
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "OpenGLLab",
+      "namespace": "OpenGLLab",
+      "template": "old/uwp-cpp-app"
+    }
   }
 }
