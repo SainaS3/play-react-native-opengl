@@ -8,6 +8,8 @@
 @interface LegacyOpenGLView : UIView <MGLKViewDelegate>
 @property(nonatomic, copy) NSString *model;
 @property(nonatomic, copy) NSString *meshColor;
+@property(nonatomic) CGFloat rotationX;
+@property(nonatomic) CGFloat rotationY;
 @property(nonatomic) BOOL spinning;
 @property(nonatomic) BOOL flying;
 @property(nonatomic) BOOL wireframe;

@@ -14,6 +14,16 @@ static inline ViewerMatrix4 ViewerMatrix4MakeTranslation(float x, float y, float
         x, y, z, 1, // Column 3
     }};
 }
+static inline ViewerMatrix4 ViewerMatrix4MakeXRotation(float angle) {
+    float cosine = std::cos(angle);
+    float sine = std::sin(angle);
+    return ViewerMatrix4{{
+        1, 0, 0, 0,
+        0, cosine, sine, 0,
+        0, -sine, cosine, 0,
+        0, 0, 0, 1,
+    }};
+}
 static inline ViewerMatrix4 ViewerMatrix4MakeYRotation(float angle) {
     float cosine = std::cos(angle);
     float sine = std::sin(angle);

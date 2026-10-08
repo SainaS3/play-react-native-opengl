@@ -104,6 +104,18 @@ int main(int argc, char **argv) {
         renderer.loadModel("cone.obj", Read(resources / "models/cone.obj"));
         renderer.draw(128, 128, 0, settings);
         auto solid = ReadMeshPixels();
+        std::vector<unsigned char> initialFrame(128 * 128 * 4), rotatedFrame(initialFrame.size());
+        glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, initialFrame.data());
+        settings.rotationX = .7f;
+        settings.rotationY = .4f;
+        renderer.draw(128, 128, 0, settings);
+        Require(ReadMeshPixels() > 0, "Manual rotation did not render");
+        glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, rotatedFrame.data());
+        Require(initialFrame != rotatedFrame, "Manual rotation did not change the frame");
+        settings.rotationX = settings.rotationY = 0;
+        renderer.draw(128, 128, 0, settings);
+        glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, rotatedFrame.data());
+        Require(initialFrame == rotatedFrame, "Clearing manual rotation did not restore the frame");
         settings.wireframe = true;
         renderer.draw(128, 128, 0, settings);
         auto wire = ReadMeshPixels();

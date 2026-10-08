@@ -348,6 +348,8 @@ struct AngleViewManager
                        {L"spinning", ViewManagerPropertyType::Boolean},
                        {L"flying", ViewManagerPropertyType::Boolean},
                        {L"wireframe", ViewManagerPropertyType::Boolean},
+                       {L"rotationX", ViewManagerPropertyType::Number},
+                       {L"rotationY", ViewManagerPropertyType::Number},
                        {L"resetToken", ViewManagerPropertyType::Number}})
             .GetView();
     }
@@ -372,6 +374,10 @@ struct AngleViewManager
                     scene->settings.flying = value.AsBoolean();
                 else if (name == "wireframe")
                     scene->settings.wireframe = value.AsBoolean();
+                else if (name == "rotationX")
+                    scene->settings.rotationX = static_cast<float>(value.AsDouble());
+                else if (name == "rotationY")
+                    scene->settings.rotationY = static_cast<float>(value.AsDouble());
                 else if (name == "resetToken" && scene->resetToken != value.AsInt64()) {
                     scene->resetToken = value.AsInt64();
                     scene->Reset();

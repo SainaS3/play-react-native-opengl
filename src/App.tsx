@@ -79,10 +79,14 @@ export default function App() {
         </View>
         <View style={styles.viewport}>
           <SceneBoundary>
-            <OpenGLView {...{ model, color, spinning, flying, wireframe, reset }} />
+            <OpenGLView
+              {...{ model, color, spinning, flying, wireframe, reset }}
+              onInteractionStart={() => setSpinning(false)}
+            />
           </SceneBoundary>
           <View pointerEvents="none" style={styles.caption}>
             <Text style={styles.model}>{model}</Text>
+            <Text style={styles.small}>Drag to rotate · Reset to restore</Text>
             <Text style={styles.small}>
               {Platform.OS === 'windows'
                 ? 'C++ / ANGLE owns the scene and animation loop'

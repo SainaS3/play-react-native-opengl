@@ -8,6 +8,7 @@ This README is the official project documentation. It covers project structure, 
 
 - Search, select or randomly choose one of ten bundled OBJ models.
 - Change diffuse color, toggle rotation and wireframe, and run or reset flight animation.
+- Drag with a mouse or touch anywhere in the viewport to rotate the model horizontally and vertically. Dragging pauses automatic spinning; Reset or model selection clears manual rotation. This uses a React gesture overlay forwarding rotation properties to GLES; it does not yet perform object hit detection.
 - Render and animate through native frame callbacks independently of JavaScript.
 - Display native rendering errors in the React interface.
 - Run Release builds with bundled JavaScript without Metro.

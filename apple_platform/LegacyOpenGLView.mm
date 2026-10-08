@@ -174,6 +174,8 @@
     // and never presents; the view owns those operations, including MSAA.
     try {
         viewer::Settings settings;
+        settings.rotationX = (float)_rotationX;
+        settings.rotationY = (float)_rotationY;
         settings.spinning = _spinning;
         settings.flying = _flying;
         settings.wireframe = _wireframe;
