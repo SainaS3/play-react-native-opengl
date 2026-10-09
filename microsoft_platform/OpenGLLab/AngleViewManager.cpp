@@ -7,6 +7,8 @@
 #include <winrt/Windows.Storage.h>
 #include <winrt/Windows.UI.Xaml.h>
 #include <winrt/Windows.UI.Xaml.Interop.h>
+#include <winrt/Windows.UI.Xaml.Input.h>
+#include <winrt/Windows.UI.Input.h>
 #include <winrt/Windows.UI.Xaml.Controls.h>
 #include <winrt/Windows.UI.Xaml.Controls.Primitives.h>
 #include <winrt/Windows.UI.h>
@@ -73,6 +75,8 @@ void Log(std::string const &text) noexcept {
 // CompositionTarget drives frames without JavaScript animation callbacks.
 struct Scene : std::enable_shared_from_this<Scene> {
     weak_ref<SwapChainPanel> panel;
+    weak_ref<UIElement> wheelHost;
+    IInspectable wheelHandler{nullptr};
     std::function<void(std::string const &)> reportError;
     EGLDisplay display = EGL_NO_DISPLAY;
     EGLContext context = EGL_NO_CONTEXT;
@@ -85,7 +89,17 @@ struct Scene : std::enable_shared_from_this<Scene> {
     bool checkedFrame = false;
     event_token rendering{}, suspending{}, resuming{}, visibility{};
     std::chrono::steady_clock::time_point last{};
+    void DetachWheel() noexcept {
+        try {
+            if (auto host = wheelHost.get(); host && wheelHandler)
+                host.RemoveHandler(UIElement::PointerWheelChangedEvent(), wheelHandler);
+        } catch (...) {
+        }
+        wheelHost = {};
+        wheelHandler = nullptr;
+    }
     ~Scene() {
+        DetachWheel();
         Stop();
     }
     void Reset() {
@@ -328,13 +342,36 @@ struct AngleViewManager
         auto holder = make_self<SceneHolder>();
         holder->scene = scene;
         panel.SetValue(SceneProperty(), holder.as<winrt::Windows::Foundation::IInspectable>());
-        panel.Loaded([weakScene](auto const &, auto const &) {
-            if (auto s = weakScene.lock())
+        panel.Loaded([weakScene, weakPanel, context](auto const &, auto const &) {
+            if (auto s = weakScene.lock()) {
+                s->DetachWheel();
+                // The React touch overlay is a sibling; receive its routed wheel events
+                // from the common wrapper, including events already marked handled.
+                if (auto view = weakPanel.get()) {
+                    auto host = Media::VisualTreeHelper::GetParent(view).try_as<UIElement>();
+                    if (host) {
+                        s->wheelHost = make_weak(host);
+                        s->wheelHandler = box_value(Input::PointerEventHandler{
+                            [weakPanel, context](auto const &, Input::PointerRoutedEventArgs const &args) {
+                                auto properties = args.GetCurrentPoint(nullptr).Properties();
+                                if (properties.IsHorizontalMouseWheel()) return;
+                                if (auto target = weakPanel.get()) {
+                                    double factor = std::pow(1.25, properties.MouseWheelDelta() / 120.0);
+                                    context.DispatchEvent(target, L"topZoom", JSValueObject{{"factor", factor}});
+                                    args.Handled(true);
+                                }
+                            }});
+                        host.AddHandler(UIElement::PointerWheelChangedEvent(), s->wheelHandler, true);
+                    }
+                }
                 s->Start();
+            }
         });
         panel.Unloaded([weakScene](auto const &, auto const &) {
-            if (auto s = weakScene.lock())
+            if (auto s = weakScene.lock()) {
+                s->DetachWheel();
                 s->Stop();
+            }
         });
         Log("React Native created LegacyOpenGLView");
         return panel;
@@ -348,6 +385,7 @@ struct AngleViewManager
                        {L"spinning", ViewManagerPropertyType::Boolean},
                        {L"flying", ViewManagerPropertyType::Boolean},
                        {L"wireframe", ViewManagerPropertyType::Boolean},
+                       {L"zoom", ViewManagerPropertyType::Number},
                        {L"rotationX", ViewManagerPropertyType::Number},
                        {L"rotationY", ViewManagerPropertyType::Number},
                        {L"resetToken", ViewManagerPropertyType::Number}})
@@ -374,6 +412,8 @@ struct AngleViewManager
                     scene->settings.flying = value.AsBoolean();
                 else if (name == "wireframe")
                     scene->settings.wireframe = value.AsBoolean();
+                else if (name == "zoom")
+                    scene->settings.zoom = value.IsNull() ? 1.f : static_cast<float>(value.AsDouble());
                 else if (name == "rotationX")
                     scene->settings.rotationX = static_cast<float>(value.AsDouble());
                 else if (name == "rotationY")
@@ -396,6 +436,7 @@ struct AngleViewManager
     }
     void OnDropViewInstance(FrameworkElement const &view) noexcept {
         if (auto tag = view.GetValue(SceneProperty())) {
+            get_self<SceneHolder>(tag)->scene->DetachWheel();
             get_self<SceneHolder>(tag)->scene->Stop();
             view.ClearValue(SceneProperty());
         }
@@ -405,6 +446,7 @@ struct AngleViewManager
     }
     ConstantProviderDelegate ExportedCustomDirectEventTypeConstants() const noexcept {
         return [](IJSValueWriter const &writer) {
+            WriteProperty(writer, L"topZoom", JSValueObject{{"registrationName", "onZoom"}});
             WriteProperty(writer, L"topError", JSValueObject{{"registrationName", "onError"}});
         };
     }

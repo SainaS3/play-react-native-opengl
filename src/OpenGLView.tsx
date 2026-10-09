@@ -6,6 +6,7 @@ import {
   Text,
   View,
   type ViewProps,
+  type GestureResponderEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
 export type GLSettings = {
@@ -15,6 +16,8 @@ export type GLSettings = {
   flying: boolean;
   wireframe: boolean;
   reset: number;
+  zoom: number;
+  onZoomChange: (zoom: number) => void;
   onInteractionStart: () => void;
 };
 type NativeProps = ViewProps & {
@@ -24,8 +27,10 @@ type NativeProps = ViewProps & {
   flying: boolean;
   wireframe: boolean;
   resetToken: number;
+  zoom: number;
   rotationX: number;
   rotationY: number;
+  onZoom: (event: NativeSyntheticEvent<{ factor: number }>) => void;
   onError: (event: NativeSyntheticEvent<{ message: string }>) => void;
 };
 const NativeGLView =
@@ -36,11 +41,56 @@ export function OpenGLView(settings: GLSettings) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const rotationRef = useRef(rotation);
   const drag = useRef<{ x: number; y: number; rotationX: number; rotationY: number } | null>(null);
+  const pinch = useRef<{ distance: number; zoom: number } | null>(null);
+  const zoomRef = useRef(settings.zoom);
+  useLayoutEffect(() => { zoomRef.current = settings.zoom; }, [settings.zoom]);
+  function changeZoom(value: number) {
+    if (!Number.isFinite(value)) return;
+    zoomRef.current = Math.max(0.5, Math.min(3, value));
+    settings.onZoomChange(zoomRef.current);
+  }
+  function handleGesture(event: GestureResponderEvent) {
+    const touches = event.nativeEvent.touches;
+    if (touches.length >= 2) {
+      drag.current = null;
+      const [a, b] = touches;
+      const distance = Math.hypot(a.pageX - b.pageX, a.pageY - b.pageY);
+      if (!pinch.current) {
+        if (distance > 0) pinch.current = { distance, zoom: zoomRef.current };
+      } else {
+        changeZoom(pinch.current.zoom * distance / pinch.current.distance);
+      }
+      return;
+    }
+    pinch.current = null;
+    if (touches.length === 0) {
+      drag.current = null;
+      return;
+    }
+    const { pageX, pageY } = touches[0];
+    const start = drag.current;
+    if (!start) {
+      drag.current = { x: pageX, y: pageY,
+        rotationX: rotationRef.current.x, rotationY: rotationRef.current.y };
+      return;
+    }
+    const size = Math.min(viewport.current.width, viewport.current.height);
+    const next = {
+      x: start.rotationX + ((pageY - start.y) / size) * Math.PI,
+      y: start.rotationY + ((pageX - start.x) / size) * Math.PI,
+    };
+    rotationRef.current = next;
+    setRotation(next);
+  }
+  function endGesture() {
+    drag.current = null;
+    pinch.current = null;
+  }
   const viewport = useRef({ width: 1, height: 1 });
   useLayoutEffect(() => {
     const initial = { x: 0, y: 0 };
     rotationRef.current = initial;
-    drag.current = null;
+    endGesture();
     setRotation(initial);
   }, [settings.model, settings.reset]);
   const [error, setError] = useState<string | null>(null);
@@ -60,8 +110,10 @@ export function OpenGLView(settings: GLSettings) {
         flying={settings.flying}
         wireframe={settings.wireframe}
         resetToken={settings.reset}
+        zoom={settings.zoom}
         rotationX={rotation.x}
         rotationY={rotation.y}
+        onZoom={(event) => changeZoom(zoomRef.current * event.nativeEvent.factor)}
         onError={(event) => setError(event.nativeEvent.message)}
       />
       <View
@@ -72,27 +124,15 @@ export function OpenGLView(settings: GLSettings) {
         }}
         onStartShouldSetResponder={() => !error}
         onResponderGrant={(event) => {
-          const { pageX, pageY } = event.nativeEvent;
-          drag.current = {
-            x: pageX, y: pageY,
-            rotationX: rotationRef.current.x, rotationY: rotationRef.current.y,
-          };
+          endGesture();
+          handleGesture(event);
           settings.onInteractionStart();
         }}
-        onResponderMove={(event) => {
-          const start = drag.current;
-          if (!start) return;
-          const { pageX, pageY } = event.nativeEvent;
-          const size = Math.min(viewport.current.width, viewport.current.height);
-          const next = {
-            x: start.rotationX + ((pageY - start.y) / size) * Math.PI,
-            y: start.rotationY + ((pageX - start.x) / size) * Math.PI,
-          };
-          rotationRef.current = next;
-          setRotation(next);
-        }}
-        onResponderRelease={() => { drag.current = null; }}
-        onResponderTerminate={() => { drag.current = null; }}
+        onResponderStart={handleGesture}
+        onResponderMove={handleGesture}
+        onResponderEnd={handleGesture}
+        onResponderRelease={endGesture}
+        onResponderTerminate={endGesture}
         onResponderTerminationRequest={() => false}
       />
       {error && (

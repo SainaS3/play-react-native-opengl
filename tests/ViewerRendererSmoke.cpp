@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <limits>
 #include <stdexcept>
 #include <vector>
 
@@ -116,6 +117,23 @@ int main(int argc, char **argv) {
         renderer.draw(128, 128, 0, settings);
         glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, rotatedFrame.data());
         Require(initialFrame == rotatedFrame, "Clearing manual rotation did not restore the frame");
+        settings.zoom = 1.25f;
+        renderer.draw(128, 128, 0, settings);
+        Require(ReadMeshPixels() > solid, "Zoom in did not increase mesh coverage");
+        settings.zoom = .5f;
+        renderer.draw(128, 128, 0, settings);
+        auto zoomedOut = ReadMeshPixels();
+        Require(zoomedOut > 0 && zoomedOut < solid, "Zoom out coverage invalid");
+        settings.zoom = 0;
+        renderer.draw(128, 128, 0, settings);
+        Require(ReadMeshPixels() == zoomedOut, "Zoom lower limit was not enforced");
+        settings.zoom = std::numeric_limits<float>::quiet_NaN();
+        renderer.draw(128, 128, 0, settings);
+        Require(ReadMeshPixels() == solid, "Invalid zoom did not fall back to normal");
+        settings.zoom = 1;
+        renderer.draw(128, 128, 0, settings);
+        glReadPixels(0, 0, 128, 128, GL_RGBA, GL_UNSIGNED_BYTE, rotatedFrame.data());
+        Require(initialFrame == rotatedFrame, "Restoring zoom did not restore the frame");
         settings.wireframe = true;
         renderer.draw(128, 128, 0, settings);
         auto wire = ReadMeshPixels();
@@ -173,7 +191,7 @@ int main(int argc, char **argv) {
         renderer.loadModel("cone.obj", Read(resources / "models/cone.obj"));
         renderer.draw(128, 128, 0, settings);
         Require(ReadMeshPixels() == solid, "Abandoned resources did not recreate");
-        std::cout << "PASS: models, wireframe, animation/reset, validation, "
+        std::cout << "PASS: models, rotation, zoom, wireframe, animation/reset, validation, "
                      "release/abandon/context recreation\n";
         result = 0;
     } catch (const std::exception &error) {

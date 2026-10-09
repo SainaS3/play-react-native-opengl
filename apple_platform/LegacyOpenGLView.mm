@@ -3,6 +3,7 @@
 #include "../shared/renderer/ViewerRenderer.hpp"
 #include <stdexcept>
 #include <cstring>
+#include <cmath>
 
 // React owns the controls. This native view owns the GL context and frame loop.
 @class LegacyOpenGLView;
@@ -26,6 +27,7 @@
 @implementation LegacyOpenGLView {
     MGLKView *_glView;
     BOOL _reportedFrame;
+    UIPanGestureRecognizer *_scrollGesture;
     viewer::Renderer _renderer;
     CFTimeInterval _lastTime;
     float _frameElapsed;
@@ -56,6 +58,7 @@
         _glView.drawableDepthFormat = MGLDrawableDepthFormat24;
         _glView.drawableMultisample = MGLDrawableMultisample4X;
         [self addSubview:_glView];
+        _zoom = 1;
         _spinning = YES;
         _meshColor = @"#e8b56b";
         // Drawable format setters can release/unbind MGLKit's EGL surface.
@@ -135,6 +138,27 @@
     _renderer.resetAnimation();
     _lastTime = 0;
 }
+// Attach to the React wrapper so scrolls over its sibling gesture overlay reach us.
+- (void)didMoveToSuperview {
+    [super didMoveToSuperview];
+    [_scrollGesture.view removeGestureRecognizer:_scrollGesture];
+    if (!_scrollGesture) {
+        _scrollGesture = [[UIPanGestureRecognizer alloc] initWithTarget:self action:@selector(scrollZoom:)];
+        _scrollGesture.allowedScrollTypesMask = UIScrollTypeMaskAll;
+        _scrollGesture.allowedTouchTypes = @[];
+        _scrollGesture.cancelsTouchesInView = NO;
+    }
+    [self.superview addGestureRecognizer:_scrollGesture];
+}
+
+- (void)scrollZoom:(UIPanGestureRecognizer *)gesture {
+    CGFloat delta = [gesture translationInView:self].y;
+    [gesture setTranslation:CGPointZero inView:self];
+    if (delta != 0 && self.onZoom) {
+        self.onZoom(@{@"factor": @(std::exp(delta * .001))});
+    }
+}
+
 - (void)didMoveToWindow {
     [super didMoveToWindow];
     if (self.window && _glView && !_failure && !_displayLink) {
@@ -174,6 +198,7 @@
     // and never presents; the view owns those operations, including MSAA.
     try {
         viewer::Settings settings;
+        settings.zoom = (float)_zoom;
         settings.rotationX = (float)_rotationX;
         settings.rotationY = (float)_rotationY;
         settings.spinning = _spinning;

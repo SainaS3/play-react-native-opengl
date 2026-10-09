@@ -9,6 +9,7 @@ This README is the official project documentation. It covers project structure, 
 - Search, select or randomly choose one of ten bundled OBJ models.
 - Change diffuse color, toggle rotation and wireframe, and run or reset flight animation.
 - Drag with a mouse or touch anywhere in the viewport to rotate the model horizontally and vertically. Dragging pauses automatic spinning; Reset or model selection clears manual rotation. This uses a React gesture overlay forwarding rotation properties to GLES; it does not yet perform object hit detection.
+- Pinch with two fingers on touchscreens, or scroll the mouse wheel over the viewport to zoom from 50% to 300%. Reset or model selection restores 100%; zoom changes the orthographic camera without modifying meshes.
 - Render and animate through native frame callbacks independently of JavaScript.
 - Display native rendering errors in the React interface.
 - Run Release builds with bundled JavaScript without Metro.
@@ -39,7 +40,7 @@ The shared renderer handles OBJ parsing, mesh normalization, triangle and edge b
 
 The supported assets use OBJ positions and face indices, including negative relative indices. Polygons are fan-triangulated and flat face normals are calculated. MTL materials, textures and authored smooth normals are not loaded. Wireframe uses explicit edge lines.
 
-The native component exposes `model`, `meshColor`, `spinning`, `flying`, `wireframe`, `resetToken` and `onError`. The project uses React Native's legacy Paper architecture with `newArchEnabled: false`.
+The native component exposes `model`, `meshColor`, `spinning`, `flying`, `wireframe`, `rotationX`, `rotationY`, `zoom`, `resetToken`, `onZoom` and `onError`. The project uses React Native's legacy Paper architecture with `newArchEnabled: false`.
 
 ### Frame workflow
 
@@ -55,6 +56,8 @@ flowchart TD
 ```
 
 On Apple, `CADisplayLink` schedules frames and `MGLKView` owns its framebuffer, depth/MSAA configuration and presentation. On Windows, `CompositionTarget.Rendering` schedules frames, EGL targets a `SwapChainPanel`, and the adapter presents with `eglSwapBuffers`.
+
+Touch pinch is handled by the React responder overlay; lifting one finger rebases drag rotation to avoid a jump. Native Apple scroll gestures and Windows routed wheel events emit `onZoom` factors to the same React zoom state. Wheel listeners attach to the viewport wrapper so input over the overlay reaches them, and detach when the native view is removed. Apple uses [UIKit scroll recognition](https://developer.apple.com/documentation/uikit/uipangesturerecognizer/allowedscrolltypesmask); Windows uses [PointerWheelChanged](https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.uielement.pointerwheelchanged).
 
 All renderer GLES calls require the owning context to be current. The renderer preserves the host framebuffer and does not present. Call `releaseResources()` with a valid current context, or `abandonResources()` when the context cannot be bound. The destructor releases CPU ownership only. Recreate shaders and mesh buffers after context recreation.
 
@@ -246,6 +249,7 @@ Check TypeScript and the Apple JavaScript bundle:
 
 ```sh
 npm run check
+npm run test:gestures
 npm run export:ios
 ```
 
@@ -263,11 +267,15 @@ The Windows smoke test requires the prepared x64 ANGLE package, Visual Studio C+
 bash scripts/test-shared-renderer-mac.sh
 ```
 
-The smoke tests compile the production renderer and check pixel readback for all ten models, wireframe, animation/reset, malformed input, negative indices and resource/context recreation. They use pbuffer surfaces and complement application testing.
+The smoke tests compile the production renderer and check pixel readback for all ten models, manual rotation, zoom, wireframe, animation/reset, malformed input, negative indices and resource/context recreation. They use pbuffer surfaces and complement application testing.
 
 For application validation, inspect the actual window, backend and first-frame logs. Exercise model selection, color, rotation, flight/reset, wireframe, resizing, view removal/reattachment and background/foreground transitions. Windows logs React startup, property delivery, backend, readback and presentation. Apple logs backend, model vertex counts, drawable dimensions and GL errors.
 
 ### Recorded validation
+
+October 9, 2026 pinch/wheel update: TypeScript and `npm run test:gestures` passed, covering pinch scaling, zoom limits, pinch-to-drag rebasing, wheel delivery and invalid input. Mac Catalyst and signed iOS Release builds passed. Mouse scroll in both directions, Reset and drag rotation were checked on Apple M2. The final app was installed and launched on iPhone SE (3rd generation), reporting Apple A15 Metal/GLES2 and first-frame GL error `0x0`. Physical touchscreen pinch and Windows build/input verification remain pending. Logs are in `artifacts/verification-8f03a17/gesture-*.log`.
+
+October 9, 2026 button zoom validation (before the pinch/wheel update): TypeScript and the shared renderer smoke test passed, including zoom pixel coverage, lower-limit clamping, invalid-value fallback and restoration to the original frame. Mac Catalyst and signed iOS Release builds passed. Zoom in/out and Reset were visually verified on Apple M2; the updated app was installed on iPhone SE (3rd generation), but the initial launch attempt was blocked by the lock screen. Windows zoom build/runtime validation remains pending. Local logs are in `artifacts/verification-8f03a17/zoom-*.log`.
 
 The following summarizes the existing project records; this documentation cleanup does not rerun native builds or device tests.
 

@@ -8,6 +8,7 @@
 @interface LegacyOpenGLView : UIView <MGLKViewDelegate>
 @property(nonatomic, copy) NSString *model;
 @property(nonatomic, copy) NSString *meshColor;
+@property(nonatomic) CGFloat zoom;
 @property(nonatomic) CGFloat rotationX;
 @property(nonatomic) CGFloat rotationY;
 @property(nonatomic) BOOL spinning;
@@ -15,4 +16,5 @@
 @property(nonatomic) BOOL wireframe;
 @property(nonatomic) NSInteger resetToken;
 @property(nonatomic, copy) RCTDirectEventBlock onError;
+@property(nonatomic, copy) RCTDirectEventBlock onZoom;
 @end
