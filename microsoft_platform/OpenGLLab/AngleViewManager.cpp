@@ -76,7 +76,7 @@ void Log(std::string const &text) noexcept {
 struct Scene : std::enable_shared_from_this<Scene> {
     weak_ref<SwapChainPanel> panel;
     weak_ref<UIElement> wheelHost;
-    IInspectable wheelHandler{nullptr};
+    winrt::Windows::Foundation::IInspectable wheelHandler{nullptr};
     std::function<void(std::string const &)> reportError;
     EGLDisplay display = EGL_NO_DISPLAY;
     EGLContext context = EGL_NO_CONTEXT;
