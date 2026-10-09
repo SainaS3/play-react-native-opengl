@@ -9,7 +9,7 @@ namespace winrt::OpenGLLab::implementation {
 
 void ReactPackageProvider::CreatePackage(IReactPackageBuilder const &packageBuilder) noexcept {
     AddAttributedModules(packageBuilder, true);
-    packageBuilder.AddViewManager(L"LegacyOpenGLView", [] { return MakeAngleViewManager(); });
+    packageBuilder.AddViewManager(L"AngleView", [] { return MakeAngleViewManager(); });
 }
 
 } // namespace winrt::OpenGLLab::implementation

@@ -1,17 +1,19 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const root = path.resolve(__dirname, '..');
 const angleRoot = path.resolve(process.argv[2] || path.join(root, '../angle'));
 const framework = path.join(angleRoot, 'out/darwin-es3-metal/MetalANGLE.xcframework');
 if (!existsSync(framework))
   throw new Error(
     `Missing ${framework}. Build the handoff artifact first or pass the ANGLE checkout to npm run angle:prepare -- /path/to/angle.`,
   );
-const metadata = JSON.parse(
+type FrameworkMetadata = {
+  AvailableLibraries: { SupportedPlatform: string; SupportedPlatformVariant?: string }[];
+};
+const metadata: FrameworkMetadata = JSON.parse(
   execFileSync('plutil', ['-convert', 'json', '-o', '-', path.join(framework, 'Info.plist')], {
     encoding: 'utf8',
   }),
@@ -31,7 +33,7 @@ const destination = path.join(root, 'apple_platform/vendor');
 mkdirSync(destination, { recursive: true });
 const hashes = path.join(angleRoot, 'out/darwin-es3-metal/SHA256SUMS.json');
 if (existsSync(hashes)) {
-  const manifest = JSON.parse(readFileSync(hashes, 'utf8'));
+  const manifest: Record<string, string> = JSON.parse(readFileSync(hashes, 'utf8'));
   for (const [name, expected] of Object.entries(manifest)) {
     if (!name.startsWith('MetalANGLE.xcframework/')) continue;
     const actual = createHash('sha256')

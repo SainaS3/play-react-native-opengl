@@ -8,17 +8,23 @@ This README is the official project documentation. It covers project structure, 
 
 - Search, select or randomly choose one of ten bundled OBJ models.
 - Change diffuse color, toggle rotation and wireframe, and run or reset flight animation.
+- Drag with a mouse or touch anywhere in the viewport to rotate the model horizontally and vertically. Dragging pauses automatic spinning; Reset or model selection clears manual rotation. This uses a React gesture overlay forwarding rotation properties to GLES; it does not yet perform object hit detection.
+- Pinch with two fingers on touchscreens, or scroll the mouse wheel over the viewport to zoom from 50% to 300%. Reset or model selection restores 100%; zoom changes the orthographic camera without modifying meshes.
 - Render and animate through native frame callbacks independently of JavaScript.
 - Display native rendering errors in the React interface.
 - Run Release builds with bundled JavaScript without Metro.
 
 ## Architecture
 
+`AngleView` is the shared React Native component name on Apple and Windows. Both platforms register an `AngleViewManager`; Apple implements the host in `AngleView.mm`, while Windows implements its host in `AngleViewManager.cpp`. ANGLE runs the shared OpenGL ES renderer through Metal on Apple and Direct3D 11 on Windows.
+
+After updating from the historical component name, rebuild the native app and JavaScript bundle together on each platform. For an existing Apple checkout, run `npm run angle:configure` to replace stale generated Xcode source references before building.
+
 React owns the controls and application state. Platform adapters own native views, graphics contexts, resource loading, frame scheduling and presentation. Both adapters compile the same `viewer::Renderer` implementation and link the GLES runtime for their platform.
 
 ```mermaid
 flowchart TD
-    UI[React Native controls] --> Props[LegacyOpenGLView properties]
+    UI[React Native controls] --> Props[AngleView properties]
     Props --> Apple[Apple Objective-C++ adapter]
     Props --> Windows[Windows C++/WinRT adapter]
     Assets[Bundled OBJ models and GLSL shaders] --> Apple
@@ -38,7 +44,7 @@ The shared renderer handles OBJ parsing, mesh normalization, triangle and edge b
 
 The supported assets use OBJ positions and face indices, including negative relative indices. Polygons are fan-triangulated and flat face normals are calculated. MTL materials, textures and authored smooth normals are not loaded. Wireframe uses explicit edge lines.
 
-The native component exposes `model`, `meshColor`, `spinning`, `flying`, `wireframe`, `resetToken` and `onError`. The project uses React Native's legacy Paper architecture with `newArchEnabled: false`.
+The native component exposes `model`, `meshColor`, `spinning`, `flying`, `wireframe`, `rotationX`, `rotationY`, `zoom`, `resetToken`, `onZoom` and `onError`. The project uses React Native's legacy Paper architecture with `newArchEnabled: false`.
 
 ### Frame workflow
 
@@ -55,6 +61,8 @@ flowchart TD
 
 On Apple, `CADisplayLink` schedules frames and `MGLKView` owns its framebuffer, depth/MSAA configuration and presentation. On Windows, `CompositionTarget.Rendering` schedules frames, EGL targets a `SwapChainPanel`, and the adapter presents with `eglSwapBuffers`.
 
+Touch pinch is handled by the React responder overlay; lifting one finger rebases drag rotation to avoid a jump. Native Apple scroll gestures and Windows routed wheel events emit `onZoom` factors to the same React zoom state. Wheel listeners attach to the viewport wrapper so input over the overlay reaches them, and detach when the native view is removed. Apple uses [UIKit scroll recognition](https://developer.apple.com/documentation/uikit/uipangesturerecognizer/allowedscrolltypesmask); Windows uses [PointerWheelChanged](https://learn.microsoft.com/en-us/uwp/api/windows.ui.xaml.uielement.pointerwheelchanged).
+
 All renderer GLES calls require the owning context to be current. The renderer preserves the host framebuffer and does not present. Call `releaseResources()` with a valid current context, or `abandonResources()` when the context cannot be bound. The destructor releases CPU ownership only. Recreate shaders and mesh buffers after context recreation.
 
 ## Project structure
@@ -62,21 +70,23 @@ All renderer GLES calls require the owning context to be current. The renderer p
 | Path | Responsibility |
 | --- | --- |
 | `src/App.tsx` | Shared React controls and UI state |
-| `src/OpenGLView.tsx` | Native component wrapper and error events |
+| `src/AngleView.tsx` | Native component wrapper and error events |
 | `src/generated/modelNames.json` | Generated OBJ filename list |
 | `shared/renderer/ViewerRenderer.hpp` and `.cpp` | Shared renderer interface and implementation |
 | `shared/renderer/ViewerMath.hpp` | Platform-independent vector and matrix math |
 | `shared/resources/models/` | Ten original OBJ models and MTL companions |
 | `shared/resources/shaders/` | Original vertex-lighting shaders |
-| `apple_platform/LegacyOpenGLView.hpp` and `.mm` | Apple view, context, assets and frame lifecycle |
-| `apple_platform/LegacyOpenGLViewManager.mm` | Apple React module and property registration |
+| `apple_platform/AngleView.hpp` and `.mm` | Apple view, context, assets and frame lifecycle |
+| `apple_platform/AngleViewManager.mm` | Apple React module and property registration |
 | `apple_platform/ViewerMetalANGLE.podspec` | Local MetalANGLE framework integration |
 | `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | Windows React view, EGL surface and lifecycle |
 | `microsoft_platform/OpenGLLab.sln` | Windows Visual Studio solution |
-| `plugins/with-native-opengl.js` | Reproducible Apple source, resource and pod registration |
+| `plugins/native-opengl.ts` | Reproducible Apple source, resource and pod registration |
 | `scripts/` | Artifact preparation, builds, launch and verification |
 | `tests/ViewerRendererSmoke.cpp` | Shared renderer smoke-test host |
 | `artifacts/` | Ignored build products, packages and logs |
+
+Application entry points, React components, build scripts, gesture tests and native-integration plugin logic are TypeScript. `npm run check` checks both the app and Node tooling. `tsx` runs TypeScript tooling on Node 20.19 or later; JavaScript configuration files remain for tool discovery, with small loaders for the TypeScript Windows Metro config and Expo plugin.
 
 Apple's `ios/` project is generated and ignored. Keep durable native changes in `apple_platform/` and the Expo plugin. Windows uses the checked-in Visual Studio/MSBuild project. `react-native.config.js` points Windows CLI discovery to `microsoft_platform/`.
 
@@ -137,7 +147,7 @@ flowchart LR
     Verify --> Launch[Register development layout and launch]
 ```
 
-The Windows entrypoint is `index.windows.js`; bundling uses `metro.windows.config.js`. `ReactPackageProvider.cpp` registers the ANGLE view manager. Preserve `AutolinkedNativeModules.*` and React package registration for community modules. The XAML files provide the React host shell.
+The Windows entrypoint is `index.windows.ts`; bundling uses `metro.windows.config.js`. `ReactPackageProvider.cpp` registers the ANGLE view manager. Preserve `AutolinkedNativeModules.*` and React package registration for community modules. The XAML files provide the React host shell.
 
 ### Launch and packages
 
@@ -245,6 +255,7 @@ Check TypeScript and the Apple JavaScript bundle:
 
 ```sh
 npm run check
+npm run test:gestures
 npm run export:ios
 ```
 
@@ -262,11 +273,17 @@ The Windows smoke test requires the prepared x64 ANGLE package, Visual Studio C+
 bash scripts/test-shared-renderer-mac.sh
 ```
 
-The smoke tests compile the production renderer and check pixel readback for all ten models, wireframe, animation/reset, malformed input, negative indices and resource/context recreation. They use pbuffer surfaces and complement application testing.
+The smoke tests compile the production renderer and check pixel readback for all ten models, manual rotation, zoom, wireframe, animation/reset, malformed input, negative indices and resource/context recreation. They use pbuffer surfaces and complement application testing.
 
 For application validation, inspect the actual window, backend and first-frame logs. Exercise model selection, color, rotation, flight/reset, wireframe, resizing, view removal/reattachment and background/foreground transitions. Windows logs React startup, property delivery, backend, readback and presentation. Apple logs backend, model vertex counts, drawable dimensions and GL errors.
 
 ### Recorded validation
+
+October 9, 2026 naming cleanup: unified React/native registration and source filenames under `AngleView` and `AngleViewManager`. TypeScript, gesture checks, Expo prebuild/CocoaPods, Mac Catalyst and signed iOS Release builds passed. Mac launch rendered with first-frame GL error `0x0`. The iPhone installation succeeded, but the launch command timed out, so this rename has no fresh confirmed iPhone runtime result. Windows build validation remains pending. Logs are in `artifacts/verification-8f03a17/rename-*.log`.
+
+October 9, 2026 pinch/wheel update: TypeScript and `npm run test:gestures` passed, covering pinch scaling, zoom limits, pinch-to-drag rebasing, wheel delivery and invalid input. Mac Catalyst and signed iOS Release builds passed. Mouse scroll in both directions, Reset and drag rotation were checked on Apple M2. The final app was installed and launched on iPhone SE (3rd generation), reporting Apple A15 Metal/GLES2 and first-frame GL error `0x0`. Physical touchscreen pinch and Windows build/input verification remain pending. Logs are in `artifacts/verification-8f03a17/gesture-*.log`.
+
+October 9, 2026 button zoom validation (before the pinch/wheel update): TypeScript and the shared renderer smoke test passed, including zoom pixel coverage, lower-limit clamping, invalid-value fallback and restoration to the original frame. Mac Catalyst and signed iOS Release builds passed. Zoom in/out and Reset were visually verified on Apple M2; the updated app was installed on iPhone SE (3rd generation), but the initial launch attempt was blocked by the lock screen. Windows zoom build/runtime validation remains pending. Local logs are in `artifacts/verification-8f03a17/zoom-*.log`.
 
 The following summarizes the existing project records; this documentation cleanup does not rerun native builds or device tests.
 

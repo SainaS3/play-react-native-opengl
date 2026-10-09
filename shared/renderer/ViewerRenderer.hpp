@@ -5,6 +5,8 @@
 
 namespace viewer {
 struct Settings {
+    float rotationX = 0, rotationY = 0; // Manual rotation in radians from React gestures.
+    float zoom = 1; // Camera magnification, clamped to 0.5 through 3.
     unsigned color = 0xe8b56b;
     bool spinning = true, flying = false, wireframe = false;
 };

@@ -24,7 +24,7 @@
     <AppxPackageSigningEnabled>false</AppxPackageSigningEnabled>
     <AppxBundle>Never</AppxBundle>
     <GenerateAppxPackageOnBuild>true</GenerateAppxPackageOnBuild>
-    <BundleEntryFile>index.windows.js</BundleEntryFile>
+    <BundleEntryFile>index.windows.ts</BundleEntryFile>
     <BundleCliCommand>node node_modules/@react-native-community/cli/build/bin.js bundle --config metro.windows.config.js</BundleCliCommand>
   </PropertyGroup>
   <PropertyGroup Label="ReactNativeWindowsProps">

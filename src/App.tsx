@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { OpenGLView } from './OpenGLView';
+import { AngleView } from './AngleView';
 import modelNames from './generated/modelNames.json';
 
 class SceneBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -59,10 +59,12 @@ export default function App() {
   const [spinning, setSpinning] = useState(true);
   const [flying, setFlying] = useState(false);
   const [wireframe, setWireframe] = useState(false);
+  const [zoom, setZoom] = useState(1);
   const [reset, setReset] = useState(0);
   const [color, setColor] = useState('#e8b56b');
   function choose(name: string) {
     setModel(name);
+    setZoom(1);
     setFlying(false);
     setReset((value) => value + 1);
   }
@@ -79,10 +81,15 @@ export default function App() {
         </View>
         <View style={styles.viewport}>
           <SceneBoundary>
-            <OpenGLView {...{ model, color, spinning, flying, wireframe, reset }} />
+            <AngleView
+              {...{ model, color, spinning, flying, wireframe, reset, zoom }}
+              onZoomChange={setZoom}
+              onInteractionStart={() => setSpinning(false)}
+            />
           </SceneBoundary>
           <View pointerEvents="none" style={styles.caption}>
             <Text style={styles.model}>{model}</Text>
+            <Text style={styles.small}>Drag to rotate · Pinch or scroll to zoom · {Math.round(zoom * 100)}% · Reset to restore</Text>
             <Text style={styles.small}>
               {Platform.OS === 'windows'
                 ? 'C++ / ANGLE owns the scene and animation loop'
@@ -106,6 +113,7 @@ export default function App() {
               label="Reset"
               onPress={() => {
                 setFlying(false);
+                setZoom(1);
                 setReset((value) => value + 1);
               }}
             />

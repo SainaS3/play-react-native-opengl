@@ -175,10 +175,15 @@ struct Renderer::Impl {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         glUseProgram(program);
         float aspect = static_cast<float>(width) / viewHeight;
-        auto mv = ViewerMatrix4Multiply(ViewerMatrix4MakeTranslation(0, height, 0),
-                                        ViewerMatrix4MakeYRotation(angle));
+        float rotationX = std::isfinite(settings.rotationX) ? settings.rotationX : 0;
+        float rotationY = std::isfinite(settings.rotationY) ? settings.rotationY : 0;
+        auto rotation = ViewerMatrix4Multiply(ViewerMatrix4MakeXRotation(rotationX),
+                                             ViewerMatrix4MakeYRotation(angle + rotationY));
+        auto mv = ViewerMatrix4Multiply(ViewerMatrix4MakeTranslation(0, height, 0), rotation);
+        float zoom = std::isfinite(settings.zoom) ? std::max(.5f, std::min(3.f, settings.zoom)) : 1.f;
+        float extent = 1.8f / zoom;
         auto projection =
-            ViewerMatrix4MakeOrtho(-1.8f * aspect, 1.8f * aspect, -1.8f, 1.8f, -10, 10);
+            ViewerMatrix4MakeOrtho(-extent * aspect, extent * aspect, -extent, extent, -10, 10);
         auto mvp = ViewerMatrix4Multiply(projection, mv);
         glUniformMatrix4fv(glGetUniformLocation(program, "u_mvMatrix"), 1, GL_FALSE, mv.m);
         glUniformMatrix4fv(glGetUniformLocation(program, "u_mvpMatrix"), 1, GL_FALSE, mvp.m);

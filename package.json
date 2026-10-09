@@ -2,10 +2,10 @@
   "name": "react-native-opengl-lab",
   "version": "1.0.0",
   "private": true,
-  "main": "index.js",
+  "main": "index.ts",
   "scripts": {
     "prepare": "npm run assets",
-    "assets": "node scripts/generate-models.mjs",
+    "assets": "tsx scripts/generate-models.ts",
     "start": "expo start",
     "ios": "expo start --dev-client --ios",
     "ios:device": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo run:ios --device",
@@ -13,14 +13,16 @@
     "build:ios": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo run:ios",
     "export:ios": "expo export --platform ios --output-dir dist/ios",
     "export:web": "expo export --platform web --output-dir dist/web",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --project tsconfig.tooling.json",
+    "test:gestures": "tsx tests/AngleViewGestures.ts",
     "android": "expo run:android",
-    "angle:prepare": "node scripts/prepare-angle.mjs",
+    "angle:prepare": "tsx scripts/prepare-angle.ts",
     "build:catalyst": "bash scripts/build-catalyst.sh",
     "catalyst": "open 'artifacts/catalyst/DerivedData/Build/Products/Release-maccatalyst/ReactOpenGLLab.app'",
     "angle:configure": "LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 expo prebuild --platform ios --no-install && LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 pod install --project-directory=ios",
     "windows": "powershell -ExecutionPolicy Bypass -File scripts/run-uwp.ps1",
-    "build:uwp": "powershell -ExecutionPolicy Bypass -File scripts/build-uwp-release.ps1"
+    "build:uwp": "powershell -ExecutionPolicy Bypass -File scripts/build-uwp-release.ps1",
+    "test:tooling": "tsx tests/ToolingConfig.ts"
   },
   "dependencies": {
     "@expo/metro-runtime": "~6.1.2",
@@ -38,9 +40,12 @@
   "devDependencies": {
     "@react-native-community/cli": "20.0.2",
     "@react-native/metro-config": "0.81.5",
+    "@types/node": "^20.19.43",
     "@types/react": "~19.1.10",
+    "@types/xcode": "^3.0.0",
     "babel-preset-expo": "~54.0.0",
     "metro-config": "^0.83.3",
+    "tsx": "^4.23.15",
     "typescript": "~5.9.2"
   },
   "engines": {
