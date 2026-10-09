@@ -320,7 +320,7 @@ struct AngleViewManager
                  IViewManagerWithDropViewInstance> {
     IReactContext reactContext{nullptr};
     hstring Name() const noexcept {
-        return L"LegacyOpenGLView";
+        return L"AngleView";
     }
     IReactContext ReactContext() const noexcept {
         return reactContext;
@@ -373,7 +373,7 @@ struct AngleViewManager
                 s->Stop();
             }
         });
-        Log("React Native created LegacyOpenGLView");
+        Log("React Native created AngleView");
         return panel;
     }
     Windows::Foundation::Collections::IMapView<hstring, ViewManagerPropertyType>

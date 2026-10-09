@@ -35,9 +35,9 @@ type NativeProps = ViewProps & {
 };
 const NativeGLView =
   Platform.OS === 'ios' || Platform.OS === 'windows'
-    ? requireNativeComponent<NativeProps>('LegacyOpenGLView')
+    ? requireNativeComponent<NativeProps>('AngleView')
     : null;
-export function OpenGLView(settings: GLSettings) {
+export function AngleView(settings: GLSettings) {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
   const rotationRef = useRef(rotation);
   const drag = useRef<{ x: number; y: number; rotationX: number; rotationY: number } | null>(null);

@@ -80,18 +80,20 @@ module.exports = (config) => {
         delete references[`${uuid}_comment`];
       }
     };
-    // Remove the old Objective-C entry when upgrading an existing project.
+    // Remove historical adapter names when upgrading an existing generated project.
     for (const file of [
       '../native/LegacyOpenGLView.m',
       '../native/LegacyOpenGLView.mm',
       '../native/shared/ViewerRenderer.cpp',
       '../apple_platform/LegacyOpenGLView.m',
+      '../apple_platform/LegacyOpenGLView.mm',
+      '../apple_platform/LegacyOpenGLViewManager.mm',
     ]) {
       removeFileAtPath(file);
     }
     const sources = [
-      '../apple_platform/LegacyOpenGLView.mm',
-      '../apple_platform/LegacyOpenGLViewManager.mm',
+      '../apple_platform/AngleView.mm',
+      '../apple_platform/AngleViewManager.mm',
       '../shared/renderer/ViewerRenderer.cpp',
     ];
     const resources = readdirSync(

@@ -1,4 +1,4 @@
-#import "LegacyOpenGLView.hpp"
+#import "AngleView.hpp"
 #import <GLES2/gl2.h>
 #include "../shared/renderer/ViewerRenderer.hpp"
 #include <stdexcept>
@@ -6,14 +6,14 @@
 #include <cmath>
 
 // React owns the controls. This native view owns the GL context and frame loop.
-@class LegacyOpenGLView;
+@class AngleView;
 @interface GLFrameProxy : NSObject
-@property(nonatomic, weak) LegacyOpenGLView *view;
+@property(nonatomic, weak) AngleView *view;
 - (void)tick:(CADisplayLink *)link;
 @end
 
 // Internal callbacks and asset loading stay private to the Apple host.
-@interface LegacyOpenGLView ()
+@interface AngleView ()
 - (void)tick:(CADisplayLink *)link;
 - (std::string)resource:(NSString *)name extension:(NSString *)extension;
 @end
@@ -24,7 +24,7 @@
 }
 @end
 
-@implementation LegacyOpenGLView {
+@implementation AngleView {
     MGLKView *_glView;
     BOOL _reportedFrame;
     UIPanGestureRecognizer *_scrollGesture;

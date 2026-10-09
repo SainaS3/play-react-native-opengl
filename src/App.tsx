@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { OpenGLView } from './OpenGLView';
+import { AngleView } from './AngleView';
 import modelNames from './generated/modelNames.json';
 
 class SceneBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
@@ -81,7 +81,7 @@ export default function App() {
         </View>
         <View style={styles.viewport}>
           <SceneBoundary>
-            <OpenGLView
+            <AngleView
               {...{ model, color, spinning, flying, wireframe, reset, zoom }}
               onZoomChange={setZoom}
               onInteractionStart={() => setSpinning(false)}

@@ -1,16 +1,16 @@
-#import "LegacyOpenGLView.hpp"
+#import "AngleView.hpp"
 #import <React/RCTViewManager.h>
 
 // Keep the React bridge separate from context, drawable and frame-loop ownership.
-@interface LegacyOpenGLViewManager : RCTViewManager
+@interface AngleViewManager : RCTViewManager
 @end
-@implementation LegacyOpenGLViewManager
-RCT_EXPORT_MODULE(LegacyOpenGLView)
+@implementation AngleViewManager
+RCT_EXPORT_MODULE(AngleView)
 + (BOOL)requiresMainQueueSetup {
     return YES;
 }
 - (UIView *)view {
-    return [LegacyOpenGLView new];
+    return [AngleView new];
 }
 RCT_EXPORT_VIEW_PROPERTY(model, NSString)
 RCT_EXPORT_VIEW_PROPERTY(meshColor, NSString)

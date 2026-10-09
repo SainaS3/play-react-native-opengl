@@ -4,7 +4,7 @@ const ts = require('typescript');
 const assert = require('node:assert/strict');
 const updates = [];
 const rotations = [];
-const source = ts.transpileModule(fs.readFileSync('src/OpenGLView.tsx', 'utf8'), {
+const source = ts.transpileModule(fs.readFileSync('src/AngleView.tsx', 'utf8'), {
   compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX }
 }).outputText;
 const exportsObject = {};
@@ -22,7 +22,7 @@ const mockRequire = (name) => {
   throw Error(name);
 };
 vm.runInNewContext(source, {require: mockRequire, exports: exportsObject, Math, Number});
-const tree = exportsObject.OpenGLView({model:'cone.obj', zoom:1, reset:0,
+const tree = exportsObject.AngleView({model:'cone.obj', zoom:1, reset:0,
   onZoomChange: value => updates.push(value), onInteractionStart: () => {}});
 const [native, overlay] = tree.props.children;
 const touch = (x, y) => ({pageX:x, pageY:y});

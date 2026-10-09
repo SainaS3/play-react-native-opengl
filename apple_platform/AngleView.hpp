@@ -5,7 +5,7 @@
 #import <MetalANGLE/MGLKit.h>
 
 // UIKit host for the shared renderer. React properties are registered in the manager.
-@interface LegacyOpenGLView : UIView <MGLKViewDelegate>
+@interface AngleView : UIView <MGLKViewDelegate>
 @property(nonatomic, copy) NSString *model;
 @property(nonatomic, copy) NSString *meshColor;
 @property(nonatomic) CGFloat zoom;

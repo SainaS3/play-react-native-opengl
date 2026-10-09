@@ -16,11 +16,15 @@ This README is the official project documentation. It covers project structure, 
 
 ## Architecture
 
+`AngleView` is the shared React Native component name on Apple and Windows. Both platforms register an `AngleViewManager`; Apple implements the host in `AngleView.mm`, while Windows implements its host in `AngleViewManager.cpp`. ANGLE runs the shared OpenGL ES renderer through Metal on Apple and Direct3D 11 on Windows.
+
+After updating from the historical component name, rebuild the native app and JavaScript bundle together on each platform. For an existing Apple checkout, run `npm run angle:configure` to replace stale generated Xcode source references before building.
+
 React owns the controls and application state. Platform adapters own native views, graphics contexts, resource loading, frame scheduling and presentation. Both adapters compile the same `viewer::Renderer` implementation and link the GLES runtime for their platform.
 
 ```mermaid
 flowchart TD
-    UI[React Native controls] --> Props[LegacyOpenGLView properties]
+    UI[React Native controls] --> Props[AngleView properties]
     Props --> Apple[Apple Objective-C++ adapter]
     Props --> Windows[Windows C++/WinRT adapter]
     Assets[Bundled OBJ models and GLSL shaders] --> Apple
@@ -66,14 +70,14 @@ All renderer GLES calls require the owning context to be current. The renderer p
 | Path | Responsibility |
 | --- | --- |
 | `src/App.tsx` | Shared React controls and UI state |
-| `src/OpenGLView.tsx` | Native component wrapper and error events |
+| `src/AngleView.tsx` | Native component wrapper and error events |
 | `src/generated/modelNames.json` | Generated OBJ filename list |
 | `shared/renderer/ViewerRenderer.hpp` and `.cpp` | Shared renderer interface and implementation |
 | `shared/renderer/ViewerMath.hpp` | Platform-independent vector and matrix math |
 | `shared/resources/models/` | Ten original OBJ models and MTL companions |
 | `shared/resources/shaders/` | Original vertex-lighting shaders |
-| `apple_platform/LegacyOpenGLView.hpp` and `.mm` | Apple view, context, assets and frame lifecycle |
-| `apple_platform/LegacyOpenGLViewManager.mm` | Apple React module and property registration |
+| `apple_platform/AngleView.hpp` and `.mm` | Apple view, context, assets and frame lifecycle |
+| `apple_platform/AngleViewManager.mm` | Apple React module and property registration |
 | `apple_platform/ViewerMetalANGLE.podspec` | Local MetalANGLE framework integration |
 | `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | Windows React view, EGL surface and lifecycle |
 | `microsoft_platform/OpenGLLab.sln` | Windows Visual Studio solution |
@@ -272,6 +276,8 @@ The smoke tests compile the production renderer and check pixel readback for all
 For application validation, inspect the actual window, backend and first-frame logs. Exercise model selection, color, rotation, flight/reset, wireframe, resizing, view removal/reattachment and background/foreground transitions. Windows logs React startup, property delivery, backend, readback and presentation. Apple logs backend, model vertex counts, drawable dimensions and GL errors.
 
 ### Recorded validation
+
+October 9, 2026 naming cleanup: unified React/native registration and source filenames under `AngleView` and `AngleViewManager`. TypeScript, gesture checks, Expo prebuild/CocoaPods, Mac Catalyst and signed iOS Release builds passed. Mac launch rendered with first-frame GL error `0x0`. The iPhone installation succeeded, but the launch command timed out, so this rename has no fresh confirmed iPhone runtime result. Windows build validation remains pending. Logs are in `artifacts/verification-8f03a17/rename-*.log`.
 
 October 9, 2026 pinch/wheel update: TypeScript and `npm run test:gestures` passed, covering pinch scaling, zoom limits, pinch-to-drag rebasing, wheel delivery and invalid input. Mac Catalyst and signed iOS Release builds passed. Mouse scroll in both directions, Reset and drag rotation were checked on Apple M2. The final app was installed and launched on iPhone SE (3rd generation), reporting Apple A15 Metal/GLES2 and first-frame GL error `0x0`. Physical touchscreen pinch and Windows build/input verification remain pending. Logs are in `artifacts/verification-8f03a17/gesture-*.log`.
 

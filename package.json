@@ -14,7 +14,7 @@
     "export:ios": "expo export --platform ios --output-dir dist/ios",
     "export:web": "expo export --platform web --output-dir dist/web",
     "check": "tsc --noEmit",
-    "test:gestures": "node tests/OpenGLViewGestures.cjs",
+    "test:gestures": "node tests/AngleViewGestures.cjs",
     "android": "expo run:android",
     "angle:prepare": "node scripts/prepare-angle.mjs",
     "build:catalyst": "bash scripts/build-catalyst.sh",
