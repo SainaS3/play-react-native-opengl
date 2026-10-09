@@ -13,7 +13,7 @@ if (!(Test-Path -LiteralPath $MSBuild)) { throw "MSBuild not found: $MSBuild" }
 Push-Location $repo
 try {
     New-Item -ItemType Directory -Force artifacts\logs | Out-Null
-    & node scripts/generate-models.mjs
+    & npm run assets
     if ($LASTEXITCODE -ne 0) { throw 'Model list generation failed' }
     & node node_modules/@react-native-community/cli/build/bin.js autolink-windows
     if ($LASTEXITCODE -ne 0) { throw 'React Native Windows autolinking failed' }

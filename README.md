@@ -81,10 +81,12 @@ All renderer GLES calls require the owning context to be current. The renderer p
 | `apple_platform/ViewerMetalANGLE.podspec` | Local MetalANGLE framework integration |
 | `microsoft_platform/OpenGLLab/AngleViewManager.cpp` | Windows React view, EGL surface and lifecycle |
 | `microsoft_platform/OpenGLLab.sln` | Windows Visual Studio solution |
-| `plugins/with-native-opengl.js` | Reproducible Apple source, resource and pod registration |
+| `plugins/native-opengl.ts` | Reproducible Apple source, resource and pod registration |
 | `scripts/` | Artifact preparation, builds, launch and verification |
 | `tests/ViewerRendererSmoke.cpp` | Shared renderer smoke-test host |
 | `artifacts/` | Ignored build products, packages and logs |
+
+Application entry points, React components, build scripts, gesture tests and native-integration plugin logic are TypeScript. `npm run check` checks both the app and Node tooling. `tsx` runs TypeScript tooling on Node 20.19 or later; JavaScript configuration files remain for tool discovery, with small loaders for the TypeScript Windows Metro config and Expo plugin.
 
 Apple's `ios/` project is generated and ignored. Keep durable native changes in `apple_platform/` and the Expo plugin. Windows uses the checked-in Visual Studio/MSBuild project. `react-native.config.js` points Windows CLI discovery to `microsoft_platform/`.
 
@@ -145,7 +147,7 @@ flowchart LR
     Verify --> Launch[Register development layout and launch]
 ```
 
-The Windows entrypoint is `index.windows.js`; bundling uses `metro.windows.config.js`. `ReactPackageProvider.cpp` registers the ANGLE view manager. Preserve `AutolinkedNativeModules.*` and React package registration for community modules. The XAML files provide the React host shell.
+The Windows entrypoint is `index.windows.ts`; bundling uses `metro.windows.config.js`. `ReactPackageProvider.cpp` registers the ANGLE view manager. Preserve `AutolinkedNativeModules.*` and React package registration for community modules. The XAML files provide the React host shell.
 
 ### Launch and packages
 
